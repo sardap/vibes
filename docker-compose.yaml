@@ -5,7 +5,7 @@ services:
     ports:
         - "5000:5000"
     environment:
-        - WEATHER_API_KEY=1ed6d7605c30a537313f3daa90497ae7
+        - WEATHER_API_KEY=${WEATHER_API_KEY}
         - SOUND_PATH=/app/sounds
         - CONFIG_PATH=/app/config/config.json
         - ACCESS_KEY=efcc766b-788a-4b0c-b9ed-7a308d8310a0
