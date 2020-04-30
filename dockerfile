@@ -24,7 +24,7 @@ RUN mkdir sounds/
 
 EXPOSE 5000
 
-ENV DEBIAN_FRONTEND="noninteractive"
+ENV DEBIAN_FRONTEND=noninteractive
 ENV FFMPEG_LOCATION="/usr/bin/ffmpeg"
 ENV SERVE="true"
 ENV STATIC_FOLDER="/frontend"
