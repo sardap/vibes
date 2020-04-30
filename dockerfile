@@ -11,7 +11,10 @@ RUN npm run build
 
 # Backend
 FROM ubuntu:latest
-RUN apt-get update && apt-get --no-install-recommends install -y python3-pip python3-dev ffmpeg
+
+ENV DEBIAN_FRONTEND="noninteractive"
+
+RUN apt-get update && apt-get install -y python3-pip python3-dev ffmpeg
 
 COPY ./backend /app
 
@@ -24,7 +27,6 @@ RUN mkdir sounds/
 
 EXPOSE 5000
 
-ENV DEBIAN_FRONTEND="noninteractive"
 ENV FFMPEG_LOCATION="/usr/bin/ffmpeg"
 ENV SERVE="true"
 ENV STATIC_FOLDER="/frontend"
