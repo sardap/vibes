@@ -10,11 +10,11 @@ COPY ./frontend/public public
 RUN npm run build
 
 # Backend
-FROM ubuntu:latest
+FROM python:latest
 
-ENV DEBIAN_FRONTEND="noninteractive"
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y python3-pip python3-dev ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg
 
 COPY ./backend /app
 
