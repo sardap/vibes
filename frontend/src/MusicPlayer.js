@@ -2,6 +2,7 @@ import React from 'react';
 import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner'
 import Slider from 'react-rangeslider'
+import { useAsync } from "react-async"
 import 'react-rangeslider/lib/index.css'
 import './App.css'
 
@@ -24,7 +25,8 @@ class MusicPlayer extends React.Component {
 			loading: false,
 			current_time: this.get_current_time_string(),
 			volume: 100,
-			timer_text_color: "#000000"
+			timer_text_color: "#000000",
+			playing: false
 		};
 
 		navigator.geolocation.getCurrentPosition(position => {
@@ -35,7 +37,14 @@ class MusicPlayer extends React.Component {
 		});
 
 		this.clock_update_interval_id = setInterval(this.clock_update.bind(this), 1000);
+		this.weather_update_interval_id = setInterval(this.weather_update.bind(this), 1000 * 60 * 10 + 1000);
 	}
+
+	componentDidMount() {
+		this.weather_audio = new Audio();
+		window.audio = new Audio();
+		this.weather_update();
+	 }  
 
 	pad(num) {
 		var result = num + "";
@@ -43,6 +52,49 @@ class MusicPlayer extends React.Component {
 			result = "0" + result;
 		}
 		return result;
+	}
+
+	makeid(length) {
+		var result           = '';
+		var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		var charactersLength = characters.length;
+		for ( var i = 0; i < length; i++ ) {
+		   result += characters.charAt(Math.floor(Math.random() * charactersLength));
+		}
+		return result;
+	}
+	
+
+	play_weather_effect() {
+		const weather_audio_src = window.location.origin + "/api/get_weather_effect/" + this.makeid(20) + "?" + 
+			"access_key=" + this.access_key + "&" +
+			"city_name=" +  this.city + "&" +
+			"country_code=" + this.country_code;
+		
+		this.weather_audio.pause();
+		this.weather_audio.src = weather_audio_src;
+		this.weather_audio.play();
+	}
+
+	weather_update() {
+		if(this.state.playing) {
+			this.play_weather_effect();
+		}
+
+		const url = window.location.origin + "/api/get_weather" + "?" + 
+			"access_key=" + this.access_key + "&" +
+			"city_name=" +  this.city + "&" +
+			"country_code=" + this.country_code;
+
+		fetch(url)
+			.then(function(data){
+				return data.json();
+			})
+			.then((json) =>{
+				this.setState({
+					weather_state: json
+				});
+			});
 	}
 
 	get_current_time_string() {
@@ -69,10 +121,14 @@ class MusicPlayer extends React.Component {
 	start_vibing = () => {
 		const now = new Date();
 
+		this.play_weather_effect();
+
+		window.audio.volume	= this.state.volume / 100;
+
 		const next_src = window.location.origin + "/api/get_sample/" + this.get_random_game() + "/" + now.getHours() + "?" + 
-		"access_key=" + this.access_key + "&" +
-		"city_name=" +  this.city + "&" +
-		"country_code=" + this.country_code;
+			"access_key=" + this.access_key + "&" +
+			"city_name=" +  this.city + "&" +
+			"country_code=" + this.country_code;
 
 		window.audio.pause();
 		window.audio.src = next_src;
@@ -85,7 +141,7 @@ class MusicPlayer extends React.Component {
 		});
 	}
 
-	timer() {
+	music_update() {
 	
 		const now = new Date();
 
@@ -103,9 +159,7 @@ class MusicPlayer extends React.Component {
 	}
 
 	init_audio = () => {
-		window.audio = new Audio();
-
-		this.play_sound_interval_id = setInterval(this.timer.bind(this), 1000);
+		this.play_sound_interval_id = setInterval(this.music_update.bind(this), 1000);
 
 		this.setState({
 			playing: true
@@ -173,7 +227,15 @@ class MusicPlayer extends React.Component {
 		const now = new Date();
 		const times = SunCalc.getTimes(now, this.state.lat, this.state.lng, now);
 
-		const sky_day = "#87CEEB";
+		let sky_day = "#87CEEB";
+		if(this.state.weather_state) {
+			const cloud_state = this.state.weather_state.weather.cloud;
+
+			if(cloud_state == 2) {
+				sky_day = "#D2D4D8";
+			}
+		}
+
 		const sky_dusk = "#26556B";
 		const sky_night = "#252526";
 		const sky_duskset = "#2a424d"
