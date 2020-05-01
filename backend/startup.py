@@ -38,9 +38,9 @@ BITRATE = os.environ.get("BITRATE", "48k")
 
 TMP_PATH = os.environ["TMP_PATH"]
 
-LOW_WETHER_DB = os.environ.get("LOW_WETHER_DB", -45)
-MED_WEATHER_DB = os.environ.get("MED_WEATHER_DB", -25)
-HIGH_WEATHER_DB = os.environ.get("HIGH_WEATHER_DB", -10)
+LOW_WETHER_DB = os.environ.get("LOW_WETHER_DB", -85)
+MED_WEATHER_DB = os.environ.get("MED_WEATHER_DB", -45)
+HIGH_WEATHER_DB = os.environ.get("HIGH_WEATHER_DB", -25)
 
 _next_sample = None
 _weather_effects = {}

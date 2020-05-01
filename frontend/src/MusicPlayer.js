@@ -283,6 +283,7 @@ class MusicPlayer extends React.Component {
 			volume: value
 		})
 		window.audio.volume	= value / 100;
+		this.weather_audio.volume = value / 100;
 	}	
 
 	show_content() {
