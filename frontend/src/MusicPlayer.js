@@ -36,6 +36,10 @@ class MusicPlayer extends React.Component {
 			});
 		});
 
+		this.bell_playing = false
+		this.bell_played = false
+		this.vol_mod = 1
+
 		this.clock_update_interval_id = setInterval(this.clock_update.bind(this), 1000);
 		this.weather_update_interval_id = setInterval(this.weather_update.bind(this), 1000 * 60 * 10 + 1000);
 	}
@@ -141,20 +145,44 @@ class MusicPlayer extends React.Component {
 		});
 	}
 
-	music_update() {
+	music_update = () => {
 	
 		const now = new Date();
 
-		if(now.getHours() != this.state.hour) {
+		if(this.bell_playing){
+			if(window.audio.paused) {
+				this.bell_playing = false
+				this.vol_mod = 0
+				this.updateVol()	
+			}
+			return
+		}
+
+		if(now.getMinutes() == 59) {
+			this.vol_mod = 1 - now.getSeconds() / 60
+			this.updateVol()
+		}
+
+		if(now.getMinutes() == 0) {
+			this.vol_mod = now.getSeconds() / 60
+			this.updateVol()
+		}
+
+		if(now.getHours() != this.state.hour && !this.bell_played) {
+			this.bell_playing = true
+			console.log("Playing Bell Sound!");
+			this.vol_mod = 1
+			this.updateVol()
 			window.audio.pause();
 			window.audio.src = window.location.origin + "/api/get_bell";
 			window.audio.play();
-			console.log("Playing Bell Sound!");
+			this.bell_played = true
+			return
 		}
 		
-		if(now.getHours() != this.state.hour || window.audio.currentTime === window.audio.duration) {
-
+		if(this.bell_played && now.getHours() != this.state.hour || window.audio.currentTime === window.audio.duration) {
 			this.start_vibing();
+			this.bell_played = false
 		}
 	}
 
@@ -164,7 +192,7 @@ class MusicPlayer extends React.Component {
 		this.setState({
 			playing: true
 		});
-		
+
 		this.start_vibing();
 	}
 
@@ -282,9 +310,13 @@ class MusicPlayer extends React.Component {
 		this.setState({
 			volume: value
 		})
-		window.audio.volume	= value / 100;
-		this.weather_audio.volume = value / 100;
-	}	
+		this.weather_audio.volume = (value / 100);
+		this.updateVol()
+	}
+	
+	updateVol = () => {
+		window.audio.volume	= (this.state.volume / 100) * this.vol_mod;
+	}
 
 	show_content() {
 		let { volume } = this.state;
