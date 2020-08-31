@@ -3,9 +3,12 @@ import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner'
 import Slider from 'react-rangeslider'
 import { useAsync } from "react-async"
-import 'react-rangeslider/lib/index.css'
-import './App.css'
+import CheckIcon from '@material-ui/icons/Check';
+import ToggleButton from '@material-ui/lab/ToggleButton';
+import invert from 'invert-color';
 
+import './App.css'
+import 'react-rangeslider/lib/index.css'
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 var SunCalc = require('suncalc');
@@ -26,7 +29,8 @@ class MusicPlayer extends React.Component {
 			current_time: this.get_current_time_string(),
 			volume: 100,
 			timer_text_color: "#000000",
-			playing: false
+			playing: false,
+			wacky: false
 		};
 
 		navigator.geolocation.getCurrentPosition(position => {
@@ -129,7 +133,17 @@ class MusicPlayer extends React.Component {
 
 		window.audio.volume	= this.state.volume / 100;
 
-		const next_src = window.location.origin + "/api/get_sample/" + this.get_random_game() + "/" + now.getHours() + "?" + 
+		var hour = now.getHours()
+		
+		if(this.state.wacky) {
+			if(hour >= 12) {
+				hour = hour - 12
+			} else {
+				hour = hour + 12
+			}
+		}
+
+		const next_src = window.location.origin + "/api/get_sample/" + this.get_random_game() + "/" + hour + "?" + 
 			"access_key=" + this.access_key + "&" +
 			"city_name=" +  this.city + "&" +
 			"country_code=" + this.country_code;
@@ -138,7 +152,7 @@ class MusicPlayer extends React.Component {
 		window.audio.src = next_src;
 		window.audio.play();
 
-		console.log("Playing next song!");
+		console.log("Playing next song! hour:" + hour + " wacky:" + this.state.wacky);
 
 		this.setState({
 			hour: now.getHours()
@@ -293,6 +307,10 @@ class MusicPlayer extends React.Component {
 			result = sky_night;
 		}
 
+		if(this.state.wacky){
+			result = invert(result);
+		}
+
 		return result;
 	}
 
@@ -318,13 +336,41 @@ class MusicPlayer extends React.Component {
 		window.audio.volume	= (this.state.volume / 100) * this.vol_mod;
 	}
 
+	get_house = () => {
+		if(this.state.wacky){
+			return"house_invert.png"
+		}
+
+		return "house.png"
+	}
+
+	render_toggle_button = () => {
+		return <div className="text-center">
+			<ToggleButton
+				value="check"
+				selected={this.state.wacky}
+				onChange={() => {
+					this.setState({
+						wacky: !this.state.wacky
+					}, () => {
+						console.log("wacky: " + this.state.wacky)
+						this.start_vibing()
+					});
+				}}
+				>
+				<CheckIcon />
+			</ToggleButton>
+		</div>
+
+	}
+
 	show_content() {
 		let { volume } = this.state;
 
 		return (
 			<>
 				<Button variant="outline-danger" onClick={this.state.playing ? this.pause_song : this.init_audio} disabled={this.state.playing}>
-					<img src="house.png" alt="Italian Trulli" />
+					<img src={this.get_house()} alt="Italian Trulli" />
 					{this.state.playing ? <div>PLAYING</div> : <div>Not playing</div>}
 				</Button>
 				<Slider
@@ -332,6 +378,7 @@ class MusicPlayer extends React.Component {
 					orientation="horizontal"
 					onChange={this.handleOnChange}
 				/>
+				{ this.state.playing ? this.render_toggle_button() : <></> }
 			</>
 		);
 	}
