@@ -32,6 +32,7 @@ app = Flask(__name__, static_folder=os.environ.get("STATIC_FOLDER", ""))
 ENABLED_GAMES = ["new_leaf", "wild_world", "city_folk", "gamecube", "new_horizons"]
 CACHE_REFRESH_TIME = 5 * 60
 WEATHER_API_KEY = os.environ["WEATHER_API_KEY"]
+WEATHER_API_ENDPOINT = os.environ["WEATHER_API_ENDPOINT"]
 SOUND_DIR_PATH = os.environ["SOUND_PATH"]
 FFMEPG_LOCATION = os.environ["FFMPEG_LOCATION"]
 BITRATE = os.environ.get("BITRATE", "48k")
@@ -42,9 +43,8 @@ LOW_WETHER_DB = os.environ.get("LOW_WETHER_DB", -85)
 MED_WEATHER_DB = os.environ.get("MED_WEATHER_DB", -45)
 HIGH_WEATHER_DB = os.environ.get("HIGH_WEATHER_DB", -25)
 
-_next_sample = None
+
 _weather_effects = {}
-_sample_sem = Semaphore(1)
 _file_lock = Semaphore(1)
 _access_keys = []
 
@@ -99,7 +99,7 @@ class Weather():
 			self.snowing = WeatherAmount.High
 
 		if(
-			weather_body["id"] in [803, 804, 500, 511, 520, 521, 522, 531] or
+			weather_body["id"] in [804, 500, 511, 520, 521, 522, 531] or
 			round(weather_body["id"] / 100) == 6 or
 			round(weather_body["id"] / 100) == 3 or 
 			round(weather_body["id"] / 100) == 2
@@ -277,31 +277,12 @@ def get_sample(next_file, weather_state=None):
 	return _cache[file_key]["sample"]
 
 def get_weather_for_city(city_name=None, country_code=None):
-	def is_expired(key):
-		return datetime.utcnow() > _cache[key]["expire_time"]
+	url = "%s/data/2.5/weather?q=%s,%s&appid=%s" % (WEATHER_API_ENDPOINT, city_name, country_code, WEATHER_API_KEY)
 
-	_file_lock.acquire()
-	try:
-		key = (city_name + country_code).lower()
-		if(key not in _cache):
-			app.logger.info("%s Not in weather cache adding" % key)
-			url = "https://api.openweathermap.org/data/2.5/weather?q=%s,%s&appid=%s" % (city_name, country_code, WEATHER_API_KEY)
+	response = requests.get(url, headers={"easy_cache_expire_second" : str(10 * 60)})
+	body = response.json()
 
-			response = requests.get(url)
-			body = response.json()
-			_cache[key] = {
-				"data" : body["weather"][0],
-				"weather_state" : Weather(api_output=body),
-				"expire_time" : datetime.utcnow() + timedelta(minutes=10),
-				"is_expired" : is_expired
-			}
-
-		result = _cache[key]["weather_state"]
-	finally:
-		_file_lock.release()
-
-	return result
-	
+	return Weather(api_output=body)
 
 def load_config():
 	with open(os.environ["CONFIG_PATH"]) as f:
