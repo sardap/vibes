@@ -122,8 +122,27 @@ class MusicPlayer extends React.Component {
 		}
 	}
 
+	rand(seed) {
+		var lfsr = seed;
+		var bit = 0;
+		bit  = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5) ) & 1;
+		return lfsr =  (lfsr >> 1) | (bit << 15);
+	}
+
 	get_random_game() {
-		return this.enabled_games[Math.floor(Math.random() * this.enabled_games.length)];
+		const now = new Date();
+		var x = 0;
+		if(now.getMinutes() % 10 > 5){
+			x = 1
+		} else {
+			x = 2
+		}
+		var seed = parseInt((now.getMinutes() + "")[0] + x + now.getDay() + now.getMonth() + now.getFullYear());
+		var max = this.enabled_games.length;
+		var min = 0;
+		var idx = this.rand(seed) % (max - min + 1) + min;
+		
+		return this.enabled_games[idx];
 	}
 
 	start_vibing = () => {
@@ -143,7 +162,10 @@ class MusicPlayer extends React.Component {
 			}
 		}
 
-		const next_src = window.location.origin + "/api/get_sample/" + this.get_random_game() + "/" + hour + "?" + 
+		var game = this.get_random_game()
+		console.log(game)
+
+		const next_src = window.location.origin + "/api/get_sample/" + game + "/" + hour + "?" + 
 			"access_key=" + this.access_key + "&" +
 			"city_name=" +  this.city + "&" +
 			"country_code=" + this.country_code;

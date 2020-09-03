@@ -16,13 +16,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y ffmpeg
 
-COPY ./backend /app
-
 COPY --from=builder /app/build /frontend
 RUN mkdir /tmp_sounds
 
 WORKDIR /app
+COPY ./backend/requirements.txt /app/requirements.txt
 RUN pip3 install -r requirements.txt
+
+COPY ./backend/ /app/
+
 RUN mkdir sounds/
 
 EXPOSE 5000
@@ -32,5 +34,4 @@ ENV SERVE="true"
 ENV STATIC_FOLDER="/frontend"
 ENV TMP_PATH="/tmp_sounds"
 
-ENTRYPOINT [ "python3" ]
-CMD [ "startup.py" ]
+CMD ["python3", "startup.py"]

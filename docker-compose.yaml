@@ -6,6 +6,7 @@ services:
         - "5000:5000"
     environment:
         - WEATHER_API_KEY=${WEATHER_API_KEY}
+        - WEATHER_API_ENDPOINT=${WEATHER_API_ENDPOINT}
         - SOUND_PATH=/app/sounds
         - CONFIG_PATH=/app/config/config.json
         - ACCESS_KEY=efcc766b-788a-4b0c-b9ed-7a308d8310a0
@@ -13,3 +14,4 @@ services:
     volumes:
         - ./backend/sounds:/app/sounds
         - ./backend/config:/app/config
+        - ./tmp:/tmp_sounds

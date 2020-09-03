@@ -7,6 +7,7 @@ from datetime import timedelta
 from time import sleep
 from flask import Flask, send_file, jsonify, make_response, request, send_from_directory, redirect
 from logging.handlers import RotatingFileHandler
+from waitress import serve
 
 import ntpath
 import logging
@@ -42,7 +43,6 @@ TMP_PATH = os.environ["TMP_PATH"]
 LOW_WETHER_DB = os.environ.get("LOW_WETHER_DB", -85)
 MED_WEATHER_DB = os.environ.get("MED_WEATHER_DB", -45)
 HIGH_WEATHER_DB = os.environ.get("HIGH_WEATHER_DB", -25)
-
 
 _weather_effects = {}
 _file_lock = Semaphore(1)
@@ -130,7 +130,7 @@ class Weather():
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def serve(path):
+def def_path(path):
 	if((path == "/" or path == "" ) and "access_key" not in request.args):
 		return redirect("/login")
 
@@ -235,7 +235,7 @@ def get_sample_endpoint(game_name, hour):
 		attachment_filename="new_sound.mp3",
 		mimetype="audio/mp3"
 	)
-1
+
 def pad_sample(sample=None, target_length_ms=10000):
 	base_len = len(sample)
 
@@ -243,38 +243,6 @@ def pad_sample(sample=None, target_length_ms=10000):
 		sample = sample.append(sample, crossfade=base_len * 0.05)
 
 	return sample
-
-def get_sample(next_file, weather_state=None):
-	def is_expired(key):
-		return (datetime.utcnow() - _cache[key]["last_access_time"]).total_seconds() > 10 * 60
-
-	file_key = next_file
-
-	if(weather_state != None):
-		file_key = "%s:%s" % (next_file, str(weather_state))
-
-	_file_lock.acquire()
-	try:
-		if(file_key not in  _cache):
-			app.logger.info("Loading %s from file" % (next_file))
-			filename, file_extension = os.path.splitext(next_file)
-			sample = AudioSegment.from_file(os.path.join(SOUND_DIR_PATH, next_file), format=file_extension[1:])
-
-			sample = pad_sample(sample, SAMPLE_LENGTH)
-
-			sample = set_level(sample)
-
-			_cache[file_key] = {
-				"sample" : sample,
-				"last_access_time" : datetime.utcnow(),
-				"is_expired" : is_expired
-			}
-
-			app.logger.info("Added %s to cache" % (file_key))
-	finally:
-		_file_lock.release()
-
-	return _cache[file_key]["sample"]
 
 def get_weather_for_city(city_name=None, country_code=None):
 	url = "%s/data/2.5/weather?q=%s,%s&appid=%s" % (WEATHER_API_ENDPOINT, city_name, country_code, WEATHER_API_KEY)
@@ -312,13 +280,15 @@ def gen_sample(input_file, export_path):
 
 	sample.export(export_path, format="mp3", bitrate=BITRATE)
 
-def get_time_music(hour=None, game=None, weather_state=None):
+def get_time_music(hour, game, weather_state):
 	game_music = _config["music"][game]
 
-	if(hasattr(game_music[str(hour)], "get")):
-		next_file = game_music[str(hour)].get(weather_state.music_type(), game_music[str(hour)]["none"])
+	hourStr = str(hour)
+
+	if(hasattr(game_music[hourStr], "get")):
+		next_file = game_music[hourStr].get(weather_state.music_type(), game_music[hourStr]["none"])
 	else:
-		next_file = game_music[str(hour)]
+		next_file = game_music[hourStr]
 	
 	head, tail = ntpath.split(next_file)
 	file_path = os.path.join(TMP_PATH, tail or ntpath.basename(head))
@@ -392,17 +362,20 @@ def cache_clear():
 		app.logger.info("Clearing unused samples")
 		sleep(CACHE_REFRESH_TIME)
 
+def backgroundgen():
+	for i in range(0, 24):
+		for game in ENABLED_GAMES:
+			get_time_music(hour=i, game=game, weather_state=Weather())
+
 def main():
 	AudioSegment.converter = FFMEPG_LOCATION
 
-	if __name__ != "__main__":
-		return
-
-	Thread(target=cache_clear).start()
+	Thread(target=backgroundgen).start()
 
 	logging.basicConfig(level=logging.DEBUG)
 
 	if os.environ.get("SERVE", False):
-		app.run(host="0.0.0.0", port=5000, debug=False)
+		serve(app, host="0.0.0.0", port=5000)
 
-main()
+if __name__ == "__main__":
+	main()
