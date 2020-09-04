@@ -172,7 +172,18 @@ class MusicPlayer extends React.Component {
 
 		window.audio.pause();
 		window.audio.src = next_src;
-		window.audio.play();
+		window.audio.onloadedmetadata = function() {
+			var x = now.getMinutes() % 10;
+			if(x >= 5){
+				x -= 5;
+			}
+			x = x / 5;
+			x = ((window.audio.duration * x) + now.getSeconds());
+			console.log("time " + x);
+			console.log("duration " + window.audio.duration);
+			window.audio.currentTime = x;
+			window.audio.play();
+		};
 
 		console.log("Playing next song! hour:" + hour + " wacky:" + this.state.wacky);
 

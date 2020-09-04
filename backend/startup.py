@@ -230,17 +230,23 @@ def get_sample_endpoint(game_name, hour):
 	weather = get_weather_for_city(city_name=form.city_name.data, country_code=form.country_code.data)
 	music_path = get_time_music(hour=hour, game=game_name, weather_state=weather)
 	
-	return send_file(
+	response = make_response(send_file(
 		music_path,
-		attachment_filename="new_sound.mp3",
-		mimetype="audio/mp3"
-	)
+		mimetype="audio/ogg",
+		conditional=True,
+	))
+
+	return response
 
 def pad_sample(sample=None, target_length_ms=10000):
 	base_len = len(sample)
 
 	while(len(sample) < target_length_ms):
 		sample = sample.append(sample, crossfade=base_len * 0.05)
+
+	if(len(sample) > target_length_ms):
+		sample = sample[:target_length_ms]
+		sample.fade_out(5000)
 
 	return sample
 
@@ -278,7 +284,7 @@ def gen_sample(input_file, export_path):
 	sample = set_level(sample)
 	sample = pad_sample(sample, SAMPLE_LENGTH)
 
-	sample.export(export_path, format="mp3", bitrate=BITRATE)
+	sample.export(export_path, format="ogg", bitrate=BITRATE)
 
 def get_time_music(hour, game, weather_state):
 	game_music = _config["music"][game]
@@ -291,6 +297,8 @@ def get_time_music(hour, game, weather_state):
 		next_file = game_music[hourStr]
 	
 	head, tail = ntpath.split(next_file)
+	tail = tail[:-3]
+	tail = tail + "ogg"
 	file_path = os.path.join(TMP_PATH, tail or ntpath.basename(head))
 	
 	if(not os.path.exists(file_path)):
