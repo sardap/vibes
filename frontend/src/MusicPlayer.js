@@ -151,7 +151,9 @@ class MusicPlayer extends React.Component {
 
 		var max = this.enabled_games.length;
 		var min = 0;
-		var idx = Math.floor(this.rand(seed) * 1000000000) % (max - min) + min;
+		var num = this.rand(seed) * 1000000000;
+		console.log("Random Number: " + num);
+		var idx = Math.floor(num % (max - min) + min);
 		
 		return this.enabled_games[idx];
 	}
