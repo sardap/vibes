@@ -122,25 +122,36 @@ class MusicPlayer extends React.Component {
 		}
 	}
 
-	rand(seed) {
-		var lfsr = seed;
-		var bit = 0;
-		bit  = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5) ) & 1;
-		return lfsr =  (lfsr >> 1) | (bit << 15);
+	getMin(now) {
+		if(now.getMinutes() < 10) {
+			return "0";
+		}
+
+		return (now.getMinutes() + "")[0]
 	}
 
-	get_random_game() {
+	rand(seed) {
+		var t = seed += 0x6D2B79F5;
+		t = Math.imul(t ^ t >>> 15, t | 1);
+		t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+		return ((t ^ t >>> 14) >>> 0) / 4294967296;
+	}
+
+	getRandomGame() {
 		const now = new Date();
 		var x = 0;
-		if(now.getMinutes() % 10 > 5){
-			x = 1
+		if(now.getMinutes() % 10 >= 5){
+			x = 0
 		} else {
-			x = 2
+			x = 5
 		}
-		var seed = parseInt((now.getMinutes() + "")[0] + x + now.getDay() + now.getMonth() + now.getFullYear());
+		var seed = parseInt(x + this.getMin(now) + now.getDay() + now.getMonth() + now.getFullYear());
+		
+		console.log("Seed: " + seed);
+
 		var max = this.enabled_games.length;
 		var min = 0;
-		var idx = this.rand(seed) % (max - min + 1) + min;
+		var idx = Math.floor(this.rand(seed) * 1000000000) % (max - min) + min;
 		
 		return this.enabled_games[idx];
 	}
@@ -162,7 +173,7 @@ class MusicPlayer extends React.Component {
 			}
 		}
 
-		var game = this.get_random_game()
+		var game = this.getRandomGame()
 		console.log(game)
 
 		const next_src = window.location.origin + "/api/get_sample/" + game + "/" + hour + "?" + 
