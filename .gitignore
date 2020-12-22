@@ -139,3 +139,12 @@ backend/config
 
 .vscode/launch.json
 tmp/
+
+house_rain.psd
+house_rain.png
+
+house.psd
+house.png
+
+house_invert.psd
+house_invert.png
