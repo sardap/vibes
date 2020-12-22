@@ -104,3 +104,11 @@ class GetSampleForm(Form):
 			DataRequired()
 		]
 	)
+
+class GetSetForm(Form):
+	access_key = StringField(
+		'access_key',
+		[
+			DataRequired()
+		]
+	)

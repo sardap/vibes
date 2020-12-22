@@ -24,19 +24,19 @@ import uuid
 import enum
 import base64
 
-from forms import CreateSampleForm, LoginForm, GetSampleForm
+from forms import CreateSampleForm, LoginForm, GetSampleForm, GetSetForm
 
 SAMPLE_LENGTH = 300 * 1000
 
 app = Flask(__name__, static_folder=os.environ.get("STATIC_FOLDER", ""))
 
-ENABLED_GAMES = ["new_leaf", "wild_world", "city_folk", "gamecube", "new_horizons"]
-CACHE_REFRESH_TIME = 5 * 60
+COMPLETE_SET = []
 WEATHER_API_KEY = os.environ["WEATHER_API_KEY"]
 WEATHER_API_ENDPOINT = os.environ["WEATHER_API_ENDPOINT"]
 SOUND_DIR_PATH = os.environ["SOUND_PATH"]
 FFMEPG_LOCATION = os.environ["FFMPEG_LOCATION"]
 BITRATE = os.environ.get("BITRATE", "48k")
+PORT = os.environ.get("PORT", 5000)
 
 TMP_PATH = os.environ["TMP_PATH"]
 
@@ -210,13 +210,12 @@ def login_endpoint():
 		target
 	)
 
-@app.route("/api/get_sample/<game_name>/<hour>", methods=["GET"])
-def get_sample_endpoint(game_name, hour):
+@app.route("/api/get_sample/<name>/<hour>", methods=["GET"])
+def get_sample_endpoint(name, hour):
 	form = GetSampleForm(request.args)
-
 	if(
 		not form.validate() or 
-		game_name not in ENABLED_GAMES or 
+		name not in COMPLETE_SET or 
 		(not (int(hour) >= 0 and int(hour) <= 24)) or 
 		form.access_key.data not in _access_keys
 	):
@@ -228,7 +227,7 @@ def get_sample_endpoint(game_name, hour):
 		)
 
 	weather = get_weather_for_city(city_name=form.city_name.data, country_code=form.country_code.data)
-	music_path = get_time_music(hour=hour, game=game_name, weather_state=weather)
+	music_path = get_time_music(hour=hour, set=name, weather_state=weather)
 	
 	response = make_response(send_file(
 		music_path,
@@ -238,7 +237,28 @@ def get_sample_endpoint(game_name, hour):
 
 	return response
 
-def pad_sample(sample=None, target_length_ms=10000):
+@app.route("/api/get_set", methods=["GET"])
+def get_set_endpoint():
+	form = GetSetForm(request.args)
+	if(
+		not form.validate() or 
+		form.access_key.data not in _access_keys
+	):
+		return make_response(
+			jsonify({
+				"error" : form.errors
+			}),
+			400
+		)
+
+	return make_response(
+		jsonify(
+			COMPLETE_SET
+		), 
+		200
+	)
+
+def pad_sample(sample, target_length_ms=10000):
 	base_len = len(sample)
 
 	while(len(sample) < target_length_ms):
@@ -250,7 +270,7 @@ def pad_sample(sample=None, target_length_ms=10000):
 
 	return sample
 
-def get_weather_for_city(city_name=None, country_code=None):
+def get_weather_for_city(city_name, country_code):
 	url = "%s/data/2.5/weather?q=%s,%s&appid=%s" % (WEATHER_API_ENDPOINT, city_name, country_code, WEATHER_API_KEY)
 
 	response = requests.get(url, headers={"easy_cache_expire_second" : str(10 * 60)})
@@ -259,6 +279,8 @@ def get_weather_for_city(city_name=None, country_code=None):
 	return Weather(api_output=body)
 
 def load_config():
+	global COMPLETE_SET
+
 	with open(os.environ["CONFIG_PATH"]) as f:
 		result = json.loads(f.read())
 
@@ -268,6 +290,8 @@ def load_config():
 
 	for key in result["access_keys"]:
 		_access_keys.append(key)
+	
+	COMPLETE_SET = result["sets"]
 
 	return result
 
@@ -290,15 +314,15 @@ def gen_sample(input_file, export_path):
 
 	sample.export(export_path, format="ogg", bitrate=BITRATE)
 
-def get_time_music(hour, game, weather_state):
-	game_music = _config["music"][game]
+def get_time_music(hour, set, weather_state):
+	set_music = _config["music"][set]
 
 	hourStr = str(hour)
 
-	if(hasattr(game_music[hourStr], "get")):
-		next_file = game_music[hourStr].get(weather_state.music_type(), game_music[hourStr]["none"])
+	if(hasattr(set_music[hourStr], "get")):
+		next_file = set_music[hourStr].get(weather_state.music_type(), set_music[hourStr]["none"])
 	else:
-		next_file = game_music[hourStr]
+		next_file = set_music[hourStr]
 	
 	head, tail = ntpath.split(next_file)
 	tail = tail[:-3]
@@ -353,31 +377,10 @@ def get_weather_effects_file(weather_state=Weather(), duration=0):
 		
 	return _cache[str(weather_state)]["file_location"]
 
-def cache_clear():
-	while True:
-		app.logger.info("cache starting check")
-		keys = list(_cache.keys())
-		for key in keys:
-			_file_lock.acquire()
-			try:
-				if(_cache[key]["is_expired"](key)):
-					app.logger.info("cache removing {}".format(key))
-					del _cache[key]
-			finally:
-				_file_lock.release()
-
-		keys = list(_user_samples)
-		for key in keys:
-			if(datetime.utcnow() > _user_samples[key]["expire_time"]):
-				del _user_samples[key]
-
-		app.logger.info("Clearing unused samples")
-		sleep(CACHE_REFRESH_TIME)
-
 def backgroundgen():
 	for i in range(0, 24):
-		for game in ENABLED_GAMES:
-			get_time_music(hour=i, game=game, weather_state=Weather())
+		for music_set in COMPLETE_SET:
+			get_time_music(hour=i, set=music_set, weather_state=Weather())
 
 def main():
 	AudioSegment.converter = FFMEPG_LOCATION
@@ -387,7 +390,7 @@ def main():
 	logging.basicConfig(level=logging.DEBUG)
 
 	if os.environ.get("SERVE", False):
-		serve(app, host="0.0.0.0", port=5000)
+		serve(app, host="0.0.0.0", port=PORT)
 
 if __name__ == "__main__":
 	main()

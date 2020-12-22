@@ -16,7 +16,7 @@ class MusicPlayer extends React.Component {
 	constructor(props) {
 		super(props);
 
-		this.enabled_games = ["wild_world", "city_folk", "new_leaf", "gamecube", "new_horizons"];
+		this.enabled_sets = [];
 
 		const urlParams = new URLSearchParams(window.location.search);
 		this.country_code = urlParams.get('country_code');
@@ -25,7 +25,7 @@ class MusicPlayer extends React.Component {
 
 		this.state = {
 			loading: false,
-			current_time: this.get_current_time_string(),
+			current_time: this.getCurrentTimeString(),
 			volume: 100,
 			timer_text_color: "#000000",
 			playing: false,
@@ -43,14 +43,26 @@ class MusicPlayer extends React.Component {
 		this.bell_played = false
 		this.vol_mod = 1
 
-		this.clock_update_interval_id = setInterval(this.clock_update.bind(this), 1000);
-		this.weather_update_interval_id = setInterval(this.weather_update.bind(this), 1000 * 60 * 10 + 1000);
+		this.clock_update_interval_id = setInterval(this.clockUpdate.bind(this), 1000);
+		this.weather_update_interval_id = setInterval(this.weatherUpdate.bind(this), 1000 * 60 * 10 + 1000);
 	}
 
 	componentDidMount() {
 		this.weather_audio = new Audio();
 		window.audio = new Audio();
-		this.weather_update();
+		this.weatherUpdate();
+
+		//Get music set
+		const url = window.location.origin + "/api/get_set" + "?" + 
+			"access_key=" + this.access_key;
+
+		fetch(url)
+			.then(function(data){
+				return data.json();
+			})
+			.then((json) =>{
+				this.enabled_sets = json
+			});
 	 }  
 
 	pad(num) {
@@ -61,7 +73,7 @@ class MusicPlayer extends React.Component {
 		return result;
 	}
 
-	makeid(length) {
+	makeID(length) {
 		var result           = '';
 		var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 		var charactersLength = characters.length;
@@ -72,8 +84,8 @@ class MusicPlayer extends React.Component {
 	}
 	
 
-	play_weather_effect() {
-		const weather_audio_src = window.location.origin + "/api/get_weather_effect/" + this.makeid(20) + "?" + 
+	playWeatherEffect() {
+		const weather_audio_src = window.location.origin + "/api/get_weather_effect/" + this.makeID(20) + "?" + 
 			"access_key=" + this.access_key + "&" +
 			"city_name=" +  this.city + "&" +
 			"country_code=" + this.country_code;
@@ -83,9 +95,9 @@ class MusicPlayer extends React.Component {
 		this.weather_audio.play();
 	}
 
-	weather_update() {
+	weatherUpdate() {
 		if(this.state.playing) {
-			this.play_weather_effect();
+			this.playWeatherEffect();
 		}
 
 		const url = window.location.origin + "/api/get_weather" + "?" + 
@@ -104,18 +116,18 @@ class MusicPlayer extends React.Component {
 			});
 	}
 
-	get_current_time_string() {
+	getCurrentTimeString() {
 		const now = new Date();
 		return this.pad(now.getHours()) + ":" + this.pad(now.getMinutes()) + ":" + this.pad(now.getSeconds());
 	}
 
-	clock_update() {
-		const background = this.get_background();
+	clockUpdate() {
+		const background = this.getBackground();
 		document.body.style = 'background: ' + background + ';';
 		
 		if(background) {
 			this.setState({
-				current_time: this.get_current_time_string(),
+				current_time: this.getCurrentTimeString(),
 				timer_text_color: this.getContrastYIQ(background)
 			});
 		}
@@ -137,6 +149,9 @@ class MusicPlayer extends React.Component {
 	}
 
 	getRandomGame() {
+		while(this.enabled_sets.length == 0) {
+		}
+
 		const now = new Date();
 		var x = 0;
 		if(now.getMinutes() % 10 >= 5){
@@ -148,19 +163,19 @@ class MusicPlayer extends React.Component {
 		
 		console.log("Seed: " + seed);
 
-		var max = this.enabled_games.length;
+		var max = this.enabled_sets.length;
 		var min = 0;
 		var num = this.rand(seed) * 1000000000;
 		console.log("Random Number: " + num);
 		var idx = Math.floor(num % (max - min) + min);
 		
-		return this.enabled_games[idx];
+		return this.enabled_sets[idx];
 	}
 
-	start_vibing = () => {
+	startVibing = () => {
 		const now = new Date();
 
-		this.play_weather_effect();
+		this.playWeatherEffect();
 
 		window.audio.volume	= this.state.volume / 100;
 
@@ -204,7 +219,7 @@ class MusicPlayer extends React.Component {
 		});
 	}
 
-	music_update = () => {
+	musicUpdate = () => {
 	
 		const now = new Date();
 
@@ -240,19 +255,19 @@ class MusicPlayer extends React.Component {
 		}
 		
 		if(this.bell_played && now.getHours() != this.state.hour || window.audio.currentTime === window.audio.duration) {
-			this.start_vibing();
+			this.startVibing();
 			this.bell_played = false
 		}
 	}
 
-	init_audio = () => {
-		this.play_sound_interval_id = setInterval(this.music_update.bind(this), 1000);
+	initAudio = () => {
+		this.play_sound_interval_id = setInterval(this.musicUpdate.bind(this), 1000);
 
 		this.setState({
 			playing: true
 		});
 
-		this.start_vibing();
+		this.startVibing();
 	}
 
 	componentToHex(c) {
@@ -273,7 +288,7 @@ class MusicPlayer extends React.Component {
 		} : null;
 	}
 	  
-	get_color(now, start_time, end_time, start_color, middle_color, end_color) {
+	getColor(now, start_time, end_time, start_color, middle_color, end_color) {
 		const middle = new Date((start_time.getTime() + end_time.getTime()) / 2);
 		
 		if(now < middle) {
@@ -306,7 +321,7 @@ class MusicPlayer extends React.Component {
 		return (yiq >= 128) ? 'black' : 'white';
 	}
 
-	get_background() {
+	getBackground() {
 		if(!this.state.lat || !this.state.lng){
 			return;
 		}
@@ -334,19 +349,19 @@ class MusicPlayer extends React.Component {
 
 		if(now > times.nightEnd && now < times.dawn) {
 			// dawn
-			result = this.get_color(now, times.nightEnd, times.dawn, sky_night, sky_dawnset, sky_dawn);
+			result = this.getColor(now, times.nightEnd, times.dawn, sky_night, sky_dawnset, sky_dawn);
 		} else if(now > times.dawn && now < times.sunriseEnd) {
 			// Sunrise 
-			result = this.get_color(now, times.dawn, times.sunriseEnd, sky_dawn, sky_sunrise, sky_day);
+			result = this.getColor(now, times.dawn, times.sunriseEnd, sky_dawn, sky_sunrise, sky_day);
 		} else if(now > times.sunriseEnd && now < times.sunsetStart) {
 			// Daytime
 			result = sky_day;
 		} else if(now > times.sunsetStart && now < times.dusk) {
 			// Sunset
-			result = this.get_color(now, times.sunsetStart, times.dusk, sky_day, sky_sunset, sky_dusk);
+			result = this.getColor(now, times.sunsetStart, times.dusk, sky_day, sky_sunset, sky_dusk);
 		} else if(now > times.dusk && now < times.night) {
 			// Dusk
-			result = this.get_color(now, times.dusk, times.night, sky_dusk, sky_duskset, sky_night);
+			result = this.getColor(now, times.dusk, times.night, sky_dusk, sky_duskset, sky_night);
 		} else {
 			// Nighttime
 			result = sky_night;
@@ -359,7 +374,7 @@ class MusicPlayer extends React.Component {
 		return result;
 	}
 
-	show_loading() {
+	showLoading() {
 		return (
 			<div className="text-center">
 				<Spinner animation="border" role="status">
@@ -389,7 +404,7 @@ class MusicPlayer extends React.Component {
 		return "house.png"
 	}
 
-	render_toggle_button = () => {
+	renderToggleButton = () => {
 		return <div className="text-center">
 			<ToggleButton
 				value="check"
@@ -399,7 +414,7 @@ class MusicPlayer extends React.Component {
 						wacky: !this.state.wacky
 					}, () => {
 						console.log("wacky: " + this.state.wacky)
-						this.start_vibing()
+						this.startVibing()
 					});
 				}}
 				>
@@ -409,12 +424,12 @@ class MusicPlayer extends React.Component {
 
 	}
 
-	show_content() {
+	showContent() {
 		let { volume } = this.state;
 
 		return (
 			<>
-				<Button variant="outline-danger" onClick={this.state.playing ? this.pause_song : this.init_audio} disabled={this.state.playing}>
+				<Button variant="outline-danger" onClick={this.state.playing ? this.pause_song : this.initAudio} disabled={this.state.playing}>
 					<img src={this.get_house()} alt="Italian Trulli" />
 					{this.state.playing ? <div>PLAYING</div> : <div>Not playing</div>}
 				</Button>
@@ -423,12 +438,12 @@ class MusicPlayer extends React.Component {
 					orientation="horizontal"
 					onChange={this.handleOnChange}
 				/>
-				{ this.state.playing ? this.render_toggle_button() : <></> }
+				{ this.state.playing ? this.renderToggleButton() : <></> }
 			</>
 		);
 	}
 
-	show_error() {
+	showError() {
 		return (
 			<div>{this.state.error}</div>
 		)
@@ -442,7 +457,7 @@ class MusicPlayer extends React.Component {
 						{new Date().toLocaleString('en-us', {  weekday: 'long' })}
 					</div>
 					<div className="text-center display-4" style={{color : this.state.timer_text_color}}>{this.state.current_time}</div>
-					{this.state.loading ? this.show_loading() : (this.state.error ? this.show_error() : this.show_content()) }
+					{this.state.loading ? this.showLoading() : (this.state.error ? this.showError() : this.showContent()) }
 				</div>
 			</div>
 		)

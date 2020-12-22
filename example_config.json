@@ -1,0 +1,235 @@
+{
+	"bell_sound" : "bell.mp3",
+	"weather_effects" : {
+		"Rain" : "weather/rain.mp3",
+		"Drizzle" : "weather/rain.mp3",
+		"Thunderstorm" : "weather/rain.mp3"
+	},
+	"access_keys" : [
+		"PAUL_IS_VERY_COOL"
+	],
+	"sets" : [
+		"case_fans", "over_time"
+	],
+	"music" : {
+		"case_fans" : {
+			"0" :  "music/case_fans/cut_the_mattress 12 AM.mp3",
+			"1" :  "music/case_fans/cut_the_mattress 1 AM.mp3",
+			"2" :  "music/case_fans/cut_the_mattress 2 AM.mp3",
+			"3" :  "music/case_fans/cut_the_mattress 3 AM.mp3",
+			"4" :  "music/case_fans/cut_the_mattress 4 AM.mp3",
+			"5" :  "music/case_fans/cut_the_mattress 5 AM.mp3",
+			"6" :  "music/case_fans/cut_the_mattress 6 AM.mp3",
+			"7" :  "music/case_fans/cut_the_mattress 7 AM.mp3",
+			"8" :  "music/case_fans/cut_the_mattress 8 AM.mp3",
+			"9" :  "music/case_fans/cut_the_mattress 9 AM.mp3",
+			"10" : "music/case_fans/cut_the_mattress 10 AM.mp3",
+			"11" : "music/case_fans/cut_the_mattress 11 AM.mp3",
+			"12" : "music/case_fans/cut_the_mattress 12 PM.mp3",
+			"13" : "music/case_fans/cut_the_mattress 1 PM.mp3",
+			"14" : "music/case_fans/cut_the_mattress 2 PM.mp3",
+			"15" : "music/case_fans/cut_the_mattress 3 PM.mp3",
+			"16" : "music/case_fans/cut_the_mattress 4 PM.mp3",
+			"17" : "music/case_fans/cut_the_mattress 5 PM.mp3",
+			"18" : "music/case_fans/cut_the_mattress 6 PM.mp3",
+			"19" : "music/case_fans/cut_the_mattress 7 PM.mp3",
+			"20" : "music/case_fans/cut_the_mattress 8 PM.mp3",
+			"21" : "music/case_fans/cut_the_mattress 9 PM.mp3",
+			"22" : "music/case_fans/cut_the_mattress 10 PM.mp3",
+			"23" : "music/case_fans/cut_the_mattress 11 PM.mp3"
+		},
+		"over_time" : {
+			"0" :  {
+				"none" : "music/over_time/Midnight (Normal).mp3",
+				"Rain" : "music/over_time/Midnight (Rain).mp3",
+				"Drizzle" : "music/over_time/Midnight (Rain).mp3",
+				"Thunderstorm" : "music/over_time/Midnight (Rain).mp3",
+				"Snow" : "music/over_time/Midnight (Snow).mp3" 
+				
+			},
+			"1" :  {
+				"none" : "music/over_time/1 AM (Normal).mp3",
+				"Rain" : "music/over_time/1 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/1 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/1 AM (Rain).mp3",
+				"Snow" : "music/over_time/1 AM (Snow).mp3" 
+				
+			},
+			"2" :  {
+				"none" : "music/over_time/2 AM (Normal).mp3",
+				"Rain" : "music/over_time/2 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/2 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/2 AM (Rain).mp3",
+				"Snow" : "music/over_time/2 AM (Snow).mp3" 
+				
+			},
+			"3" :  {
+				"none" : "music/over_time/3 AM (Normal).mp3",
+				"Rain" : "music/over_time/3 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/3 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/3 AM (Rain).mp3",
+				"Snow" : "music/over_time/3 AM (Snow).mp3" 
+				
+			},
+			"4" :  {
+				"none" : "music/over_time/4 AM (Normal).mp3",
+				"Rain" : "music/over_time/4 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/4 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/4 AM (Rain).mp3",
+				"Snow" : "music/over_time/4 AM (Snow).mp3" 
+				
+			},
+			"5" :  {
+				"none" : "music/over_time/5 AM (Normal).mp3",
+				"Rain" : "music/over_time/5 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/5 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/5 AM (Rain).mp3",
+				"Snow" : "music/over_time/5 AM (Snow).mp3" 
+				
+			},
+			"6" :  {
+				"none" : "music/over_time/6 AM (Normal).mp3",
+				"Rain" : "music/over_time/6 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/6 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/6 AM (Rain).mp3",
+				"Snow" : "music/over_time/6 AM (Snow).mp3" 
+				
+			},
+			"7" :  {
+				"none" : "music/over_time/7 AM (Normal).mp3",
+				"Rain" : "music/over_time/7 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/7 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/7 AM (Rain).mp3",
+				"Snow" : "music/over_time/7 AM (Snow).mp3" 
+				
+			},
+			"8" :  {
+				"none" : "music/over_time/8 AM (Normal).mp3",
+				"Rain" : "music/over_time/8 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/8 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/8 AM (Rain).mp3",
+				"Snow" : "music/over_time/8 AM (Snow).mp3" 
+				
+			},
+			"9" :  {
+				"none" : "music/over_time/9 AM (Normal).mp3",
+				"Rain" : "music/over_time/9 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/9 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/9 AM (Rain).mp3",
+				"Snow" : "music/over_time/9 AM (Snow).mp3" 
+				
+			},
+			"10" : {
+				"none" : "music/over_time/10 AM (Normal).mp3",
+				"Rain" : "music/over_time/10 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/10 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/10 AM (Rain).mp3",
+				"Snow" : "music/over_time/10 AM (Snow).mp3" 
+				
+			},
+			"11" : {
+				"none" : "music/over_time/11 AM (Normal).mp3",
+				"Rain" : "music/over_time/11 AM (Rain).mp3",
+				"Drizzle" : "music/over_time/11 AM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/11 AM (Rain).mp3",
+				"Snow" : "music/over_time/11 AM (Snow).mp3" 
+				
+			},
+			"12" : {
+				"none" : "music/over_time/Noon (Normal).mp3",
+				"Rain" : "music/over_time/Noon (Rain).mp3",
+				"Drizzle" : "music/over_time/Noon (Rain).mp3",
+				"Thunderstorm" : "music/over_time/Noon (Rain).mp3",
+				"Snow" : "music/over_time/Noon (Snow).mp3" 
+				
+			},
+			"13" : {
+				"none" : "music/over_time/1 PM (Normal).mp3",
+				"Rain" : "music/over_time/1 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/1 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/1 PM (Rain).mp3",
+				"Snow" : "music/over_time/1 PM (Snow).mp3" 
+				
+			},
+			"14" : {
+				"none" : "music/over_time/2 PM (Normal).mp3",
+				"Rain" : "music/over_time/2 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/2 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/2 PM (Rain).mp3",
+				"Snow" : "music/over_time/2 PM (Snow).mp3" 
+				
+			},
+			"15" : {
+				"none" : "music/over_time/3 PM (Normal).mp3",
+				"Rain" : "music/over_time/3 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/3 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/3 PM (Rain).mp3",
+				"Snow" : "music/over_time/3 PM (Snow).mp3" 
+				
+			},
+			"16" : {
+				"none" : "music/over_time/4 PM (Normal).mp3",
+				"Rain" : "music/over_time/4 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/4 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/4 PM (Rain).mp3",
+				"Snow" : "music/over_time/4 PM (Snow).mp3" 
+				
+			},
+			"17" : {
+				"none" : "music/over_time/5 PM (Normal).mp3",
+				"Rain" : "music/over_time/5 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/5 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/5 PM (Rain).mp3",
+				"Snow" : "music/over_time/5 PM (Snow).mp3" 
+				
+			},
+			"18" : {
+				"none" : "music/over_time/6 PM (Normal).mp3",
+				"Rain" : "music/over_time/6 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/6 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/6 PM (Rain).mp3",
+				"Snow" : "music/over_time/6 PM (Snow).mp3" 
+				
+			},
+			"19" : {
+				"none" : "music/over_time/7 PM (Normal).mp3",
+				"Rain" : "music/over_time/7 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/7 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/7 PM (Rain).mp3",
+				"Snow" : "music/over_time/7 PM (Snow).mp3" 
+				
+			},
+			"20" : {
+				"none" : "music/over_time/8 PM (Normal).mp3",
+				"Rain" : "music/over_time/8 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/8 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/8 PM (Rain).mp3",
+				"Snow" : "music/over_time/8 PM (Snow).mp3" 
+				
+			},
+			"21" : {
+				"none" : "music/over_time/9 PM (Normal).mp3",
+				"Rain" : "music/over_time/9 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/9 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/9 PM (Rain).mp3",
+				"Snow" : "music/over_time/9 PM (Snow).mp3" 
+				
+			},
+			"22" : {
+				"none" : "music/over_time/10 PM (Normal).mp3",
+				"Rain" : "music/over_time/10 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/10 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/10 PM (Rain).mp3",
+				"Snow" : "music/over_time/10 PM (Snow).mp3" 
+				
+			},
+			"23" : {
+				"none" : "music/over_time/11 PM (Normal).mp3",
+				"Rain" : "music/over_time/11 PM (Rain).mp3",
+				"Drizzle" : "music/over_time/11 PM (Rain).mp3",
+				"Thunderstorm" : "music/over_time/11 PM (Rain).mp3",
+				"Snow" : "music/over_time/11 PM (Snow).mp3" 
+			}
+		}
+	}
+}
