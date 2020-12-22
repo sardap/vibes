@@ -284,6 +284,10 @@ def gen_sample(input_file, export_path):
 	sample = set_level(sample)
 	sample = pad_sample(sample, SAMPLE_LENGTH)
 
+	#Fade out
+	sample = sample.append(AudioSegment.silent(duration=5000), 5000)
+	sample = AudioSegment.silent(duration=5000).append(sample, 5000)
+
 	sample.export(export_path, format="ogg", bitrate=BITRATE)
 
 def get_time_music(hour, game, weather_state):
