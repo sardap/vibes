@@ -50,7 +50,7 @@ func init() {
 
 	err := commandSet.AddCommand(discom.Command{
 		Re: starVibeRe, Handler: startVibeCmd,
-		Example:     "start vibe",
+		Example:     "start",
 		Description: "Joins the chat channel and vibes",
 		CaseInSense: true,
 	})
