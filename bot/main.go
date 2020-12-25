@@ -13,11 +13,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/sardap/discgov"
 	"github.com/sardap/discom"
 	"github.com/sardap/vibes/bot/vibes"
@@ -25,9 +27,10 @@ import (
 )
 
 const (
-	prefix           = "-vb"
+	prefix           = "-vcb"
 	starVibePattern  = "start"
 	setupVibePattern = "setup ([a-z]{2}) \"(.*?)\" (-?\\d{4})"
+	stopVibePattern  = "stop"
 )
 
 var (
@@ -35,9 +38,11 @@ var (
 	commandSet   *discom.CommandSet
 	starVibeRe   = regexp.MustCompile(starVibePattern)
 	setupVibeRe  = regexp.MustCompile(setupVibePattern)
+	stopVibeRe   = regexp.MustCompile(stopVibePattern)
 	vibesInvoker vibes.Invoker
 	soundsPath   = os.Getenv("SOUNDS_PATH")
 	bucketName   = []byte("guilds")
+	voiceLocks   = cmap.New()
 )
 
 func init() {
@@ -57,6 +62,16 @@ func init() {
 		Re: setupVibeRe, Handler: setupVibeCmd,
 		Example:     "setup US \"new york\" -0500",
 		Description: "setup server info in bot db the number is the offset",
+		CaseInSense: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	err = commandSet.AddCommand(discom.Command{
+		Re: stopVibeRe, Handler: stopVibeCmd,
+		Example:     "stop",
+		Description: "stop vibing",
 		CaseInSense: true,
 	})
 	if err != nil {
@@ -115,6 +130,36 @@ func setGuildInfo(id string, info guildInfo) error {
 	return nil
 }
 
+type voiceLock struct {
+	lock *sync.Mutex
+}
+
+func getVoiceLock(gid string) *voiceLock {
+	var result *voiceLock
+	if tmp, ok := voiceLocks.Get(gid); ok {
+		result = tmp.(*voiceLock)
+	}
+
+	return result
+}
+
+func createVoiceLock(gid string) {
+	voiceLocks.Set(gid, &voiceLock{
+		lock: &sync.Mutex{},
+	})
+}
+
+func deleteVoiceLock(gid string) {
+	voiceLocks.Remove(gid)
+}
+
+func inVoice(gid string) bool {
+	if val := getVoiceLock(gid); val == nil {
+		return false
+	}
+	return true
+}
+
 func getUserChannel(guildID, userID string, channels []*discordgo.Channel) (string, error) {
 	for _, channel := range channels {
 		users := discgov.GetUsers(guildID, channel.ID)
@@ -167,8 +212,16 @@ func (i *guildInfo) startVibing(
 		return
 	}
 
+	createVoiceLock(v.GuildID)
+	defer deleteVoiceLock(v.GuildID)
+
 	for {
 		err := func() error {
+			vl := getVoiceLock(v.GuildID)
+			if vl == nil {
+				return fmt.Errorf("disconnected")
+			}
+
 			bytes, err := invoker.GetSample(
 				offsetTime(i.Offset).Hour(), sets[rand.Intn(len(sets))], i.City, i.Country,
 			)
@@ -202,9 +255,6 @@ func (i *guildInfo) startVibing(
 			done := make(chan error)
 			dca.NewStream(encodingSession, v, done)
 			err = <-done
-			// if err != nil && err.Error() != "EOF" {
-			// 	return err
-			// }
 			encodingSession.Cleanup()
 
 			return nil
@@ -247,6 +297,16 @@ func setupVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func startVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if inVoice(m.GuildID) {
+		s.ChannelMessageSend(
+			m.ChannelID,
+			fmt.Sprintf(
+				"<@%s> already vibing dude",
+				m.Author.ID,
+			),
+		)
+	}
+
 	info := getGuildInfo(m.GuildID)
 	if info == nil {
 		s.ChannelMessageSend(
@@ -273,7 +333,22 @@ func startVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	g, _ := s.Guild(m.GuildID)
 
-	info.startVibing(vibesInvoker, v, g)
+	go info.startVibing(vibesInvoker, v, g)
+}
+
+func stopVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if !inVoice(m.GuildID) {
+		s.ChannelMessageSend(
+			m.ChannelID,
+			fmt.Sprintf(
+				"<@%s> no vibes are happening right now",
+				m.Author.ID,
+			),
+		)
+	}
+
+	deleteVoiceLock(m.GuildID)
+	s.ChannelVoiceJoin(m.GuildID, "", true, true)
 }
 
 func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
@@ -281,6 +356,7 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 
 	if len(discgov.GetUsers(v.GuildID, v.ChannelID)) == 0 {
 		s.ChannelVoiceJoin(v.GuildID, "", true, true)
+		deleteVoiceLock(v.GuildID)
 	}
 }
 
