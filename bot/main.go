@@ -202,9 +202,9 @@ func (i *guildInfo) startVibing(
 			done := make(chan error)
 			dca.NewStream(encodingSession, v, done)
 			err = <-done
-			if err != nil && err.Error() != "EOF" {
-				return err
-			}
+			// if err != nil && err.Error() != "EOF" {
+			// 	return err
+			// }
 			encodingSession.Cleanup()
 
 			return nil
