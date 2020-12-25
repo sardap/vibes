@@ -236,7 +236,7 @@ func (i *guildInfo) startVibing(
 
 			var startTime int
 			offsetLeft := offsetTime(i.Offset).Minute() % 10
-			if offsetLeft > 5 {
+			if offsetLeft >= 5 {
 				offsetLeft = offsetLeft - 5
 			}
 			startTime = offsetLeft*60 + offsetTime(i.Offset).Second()
