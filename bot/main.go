@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	prefix           = "-vcb"
+	prefix           = "-vb"
 	starVibePattern  = "start"
 	setupVibePattern = "setup ([a-z]{2}) \"(.*?)\" (-?\\d{4})"
 	stopVibePattern  = "stop"
