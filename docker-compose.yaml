@@ -15,3 +15,13 @@ services:
         - ./backend/sounds:/app/sounds
         - ./backend/config:/app/config
         - ./tmp:/tmp_sounds
+
+  bot:
+    container_name: vibes_bot
+    build: ./bot
+    env_file: 
+      - 'bot/.env'
+    environment:
+      - DB_PATH=data/db.bin
+      - SOUNDS_PATH=/tmp/sounds
+    restart: always
