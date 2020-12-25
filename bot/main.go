@@ -222,6 +222,7 @@ func (i *guildInfo) startVibing(
 				return fmt.Errorf("disconnected")
 			}
 
+			s := time.Now().UTC()
 			bytes, err := invoker.GetSample(
 				offsetTime(i.Offset).Hour(), sets[rand.Intn(len(sets))], i.City, i.Country,
 			)
@@ -231,6 +232,7 @@ func (i *guildInfo) startVibing(
 			fileName := filepath.Join(soundsPath, fmt.Sprintf("%d.ogg", rand.Int()))
 			ioutil.WriteFile(fileName, bytes, 0644)
 			defer os.Remove(filepath.Join(soundsPath, fileName))
+			fmt.Printf("download time:%dms\n", time.Now().UTC().Sub(s).Milliseconds())
 
 			var startTime int
 			offsetLeft := offsetTime(i.Offset).Minute() % 10
@@ -241,7 +243,7 @@ func (i *guildInfo) startVibing(
 
 			options := dca.StdEncodeOptions
 			options.RawOutput = true
-			options.Bitrate = 100
+			options.Bitrate = 48
 			options.Volume = 50
 			options.Application = "audio"
 			options.StartTime = startTime
