@@ -131,7 +131,8 @@ func setGuildInfo(id string, info guildInfo) error {
 }
 
 type voiceLock struct {
-	lock *sync.Mutex
+	lock    *sync.Mutex
+	channel string
 }
 
 func getVoiceLock(gid string) *voiceLock {
@@ -143,9 +144,10 @@ func getVoiceLock(gid string) *voiceLock {
 	return result
 }
 
-func createVoiceLock(gid string) {
+func createVoiceLock(gid, cid string) {
 	voiceLocks.Set(gid, &voiceLock{
-		lock: &sync.Mutex{},
+		lock:    &sync.Mutex{},
+		channel: cid,
 	})
 }
 
@@ -212,7 +214,7 @@ func (i *guildInfo) startVibing(
 		return
 	}
 
-	createVoiceLock(v.GuildID)
+	createVoiceLock(v.GuildID, v.ChannelID)
 	defer deleteVoiceLock(v.GuildID)
 
 	for {
@@ -356,7 +358,22 @@ func stopVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
 func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	discgov.UserVoiceTrackerHandler(s, v)
 
-	if len(discgov.GetUsers(v.GuildID, v.ChannelID)) == 0 {
+	if usr, _ := s.User(v.UserID); usr.Bot {
+		return
+	}
+
+	gvi := getVoiceLock(v.GuildID)
+	if gvi == nil {
+		return
+	}
+	if v.UserID == s.State.User.ID {
+		if gvi.channel != v.ChannelID {
+			gvi.channel = v.ChannelID
+		}
+		return
+	}
+
+	if len(discgov.GetUsers(v.GuildID, gvi.channel)) == 0 {
 		s.ChannelVoiceJoin(v.GuildID, "", true, true)
 		deleteVoiceLock(v.GuildID)
 	}
