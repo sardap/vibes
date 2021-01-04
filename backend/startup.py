@@ -26,7 +26,7 @@ import base64
 
 from forms import CreateSampleForm, LoginForm, GetSampleForm, GetSetForm
 
-SAMPLE_LENGTH = 300 * 1000
+SAMPLE_LENGTH = 600 * 1000
 
 app = Flask(__name__, static_folder=os.environ.get("STATIC_FOLDER", ""))
 
@@ -138,6 +138,16 @@ def def_path(path):
 		return send_from_directory(app.static_folder, path)
 	else:
 		return send_from_directory(app.static_folder, 'index.html')
+
+@app.route("/api/get_sample_length")
+def get_sample_length_endpoint():
+	return make_response(
+		jsonify({
+			"length_ms" : SAMPLE_LENGTH,
+		}),
+		400
+	)
+
 
 @app.route("/api/get_bell")
 def get_bell_endpoint():

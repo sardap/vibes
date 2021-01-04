@@ -154,11 +154,6 @@ class MusicPlayer extends React.Component {
 
 		const now = new Date();
 		var x = 0;
-		if(now.getMinutes() % 10 >= 5){
-			x = 0
-		} else {
-			x = 5
-		}
 		var seed = parseInt(x + this.getMin(now) + now.getDay() + now.getMonth() + now.getFullYear());
 		
 		console.log("Seed: " + seed);
@@ -200,12 +195,7 @@ class MusicPlayer extends React.Component {
 		window.audio.pause();
 		window.audio.src = next_src;
 		window.audio.onloadedmetadata = function() {
-			var x = now.getMinutes() % 10;
-			if(x >= 5){
-				x -= 5;
-			}
-			x = x / 5;
-			x = ((window.audio.duration * x) + now.getSeconds());
+			const x = (now.getMinutes() % 10) * 60+ now.getSeconds();
 			console.log("time " + x);
 			console.log("duration " + window.audio.duration);
 			window.audio.currentTime = x;

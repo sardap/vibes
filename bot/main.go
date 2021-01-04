@@ -27,25 +27,33 @@ import (
 )
 
 const (
-	prefix           = "-vb"
-	starVibePattern  = "start"
-	setupVibePattern = "setup ([a-z]{2}) \"(.*?)\" (-?\\d{4})"
-	stopVibePattern  = "stop"
+	prefix            = "-vb"
+	starVibePattern   = "start"
+	setupVibePattern  = "setup ([a-z]{2}) \"(.*?)\" (-?\\d{4})"
+	stopVibePattern   = "stop"
+	serverInfoPattern = "info"
 )
 
 var (
-	dbClient     *bolt.DB
-	commandSet   *discom.CommandSet
-	starVibeRe   = regexp.MustCompile(starVibePattern)
-	setupVibeRe  = regexp.MustCompile(setupVibePattern)
-	stopVibeRe   = regexp.MustCompile(stopVibePattern)
-	vibesInvoker vibes.Invoker
-	soundsPath   = os.Getenv("SOUNDS_PATH")
-	bucketName   = []byte("guilds")
-	voiceLocks   = cmap.New()
+	dbClient       *bolt.DB
+	commandSet     *discom.CommandSet
+	starVibeRe     = regexp.MustCompile(starVibePattern)
+	setupVibeRe    = regexp.MustCompile(setupVibePattern)
+	stopVibeRe     = regexp.MustCompile(stopVibePattern)
+	serverInfoRe   = regexp.MustCompile(serverInfoPattern)
+	vibesInvoker   vibes.Invoker
+	soundsPath     = os.Getenv("SOUNDS_PATH")
+	bucketName     = []byte("guilds")
+	voiceLocks     = cmap.New()
+	defaultOptions = dca.StdEncodeOptions
 )
 
 func init() {
+	defaultOptions.RawOutput = true
+	defaultOptions.Bitrate = 48
+	defaultOptions.Volume = 50
+	defaultOptions.Application = "audio"
+
 	commandSet = discom.CreateCommandSet(regexp.MustCompile(prefix))
 
 	err := commandSet.AddCommand(discom.Command{
@@ -78,9 +86,20 @@ func init() {
 		panic(err)
 	}
 
+	err = commandSet.AddCommand(discom.Command{
+		Re: serverInfoRe, Handler: serverInfoCmd,
+		Example:     "info",
+		Description: "get server setup info",
+		CaseInSense: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	vibesInvoker = vibes.Invoker{
 		Endpoint:  os.Getenv("VIBES_ENDPOINT"),
 		AccessKey: os.Getenv("VIBES_ACCESS_KEY"),
+		Scheme:    os.Getenv("VIBES_SCHEME"),
 	}
 
 	dbClient, err = bolt.Open(os.Getenv("DB_PATH"), 0666, nil)
@@ -205,6 +224,13 @@ func offsetTime(offset string) time.Time {
 	)
 }
 
+//Gross
+func firstDigit(x int) int {
+	str := strconv.Itoa(x)
+	result, _ := strconv.Atoi(string(str[0]))
+	return result
+}
+
 func (i *guildInfo) startVibing(
 	invoker vibes.Invoker, v *discordgo.VoiceConnection,
 	g *discordgo.Guild,
@@ -217,7 +243,14 @@ func (i *guildInfo) startVibing(
 	createVoiceLock(v.GuildID, v.ChannelID)
 	defer deleteVoiceLock(v.GuildID)
 
+	bellPlayed := false
+	lastHour := -1
 	for {
+		//Check if it's the next hour
+		if lastHour != offsetTime(i.Offset).Hour() {
+			bellPlayed = false
+			lastHour = offsetTime(i.Offset).Hour()
+		}
 		err := func() error {
 			vl := getVoiceLock(v.GuildID)
 			if vl == nil {
@@ -225,30 +258,35 @@ func (i *guildInfo) startVibing(
 			}
 
 			s := time.Now().UTC()
-			bytes, err := invoker.GetSample(
-				offsetTime(i.Offset).Hour(), sets[rand.Intn(len(sets))], i.City, i.Country,
-			)
+			var bytes []byte
+			var err error
+			offsetStart := false
+			if !bellPlayed && firstDigit(offsetTime(i.Offset).Minute()) == 0 {
+				bytes, err = invoker.GetBell()
+				bellPlayed = true
+			} else {
+				bytes, err = invoker.GetSample(
+					offsetTime(i.Offset).Hour(), sets[rand.Intn(len(sets))], i.City, i.Country,
+				)
+				offsetStart = true
+			}
 			if err != nil {
 				return err
 			}
+
 			fileName := filepath.Join(soundsPath, fmt.Sprintf("%d.ogg", rand.Int()))
 			ioutil.WriteFile(fileName, bytes, 0644)
 			defer os.Remove(filepath.Join(soundsPath, fileName))
 			fmt.Printf("download time:%dms\n", time.Now().UTC().Sub(s).Milliseconds())
 
-			var startTime int
-			offsetLeft := offsetTime(i.Offset).Minute() % 10
-			if offsetLeft >= 5 {
-				offsetLeft = offsetLeft - 5
+			options := defaultOptions
+			if offsetStart {
+				var startTime int
+				offsetLeft := offsetTime(i.Offset).Minute() % 10
+				startTime = offsetLeft*60 + offsetTime(i.Offset).Second()
+				options.StartTime = startTime
 			}
-			startTime = offsetLeft*60 + offsetTime(i.Offset).Second()
 
-			options := dca.StdEncodeOptions
-			options.RawOutput = true
-			options.Bitrate = 48
-			options.Volume = 50
-			options.Application = "audio"
-			options.StartTime = startTime
 			encodingSession, err := dca.EncodeFile(fileName, options)
 			if err != nil {
 				return err
@@ -298,6 +336,29 @@ func setupVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
 			m.Author.ID,
 		),
 	)
+}
+
+func serverInfoCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
+	info := getGuildInfo(m.GuildID)
+	if info == nil {
+		s.ChannelMessageSend(
+			m.ChannelID,
+			fmt.Sprintf(
+				"<@%s> No sever info in my DB!",
+				m.Author.ID,
+			),
+		)
+		return
+	}
+
+	s.ChannelMessageSend(
+		m.ChannelID,
+		fmt.Sprintf(
+			"<@%s> info %v\n hour: %d",
+			m.Author.ID, info, offsetTime(info.Offset).Hour(),
+		),
+	)
+
 }
 
 func startVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
