@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	prefix            = "-vb"
 	starVibePattern   = "start"
 	setupVibePattern  = "setup ([a-z]{2}) \"(.*?)\" (-?\\d{4})"
 	stopVibePattern   = "stop"
@@ -35,6 +34,7 @@ const (
 )
 
 var (
+	prefix         = os.Getenv("BOT_PREFIX")
 	dbClient       *bolt.DB
 	commandSet     *discom.CommandSet
 	starVibeRe     = regexp.MustCompile(starVibePattern)
@@ -459,7 +459,7 @@ func main() {
 		return
 	}
 
-	discord.UpdateStatus(-1, "\"-vb help\"")
+	discord.UpdateStatus(-1, fmt.Sprintf("\"%s help\"", prefix))
 
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
