@@ -8,7 +8,7 @@ services:
         - WEATHER_API_KEY=${WEATHER_API_KEY}
         - WEATHER_API_ENDPOINT=${WEATHER_API_ENDPOINT}
         - SOUND_PATH=/app/sounds
-        - CONFIG_PATH=/app/config/config.json
+        - CONFIG_PATH=${CONFIG_PATH}
         - ACCESS_KEY=efcc766b-788a-4b0c-b9ed-7a308d8310a0
         - BITRATE=128k
     volumes:
@@ -16,12 +16,12 @@ services:
         - ./backend/config:/app/config
         - ./tmp:/tmp_sounds
 
-  # bot:
-  #   container_name: vibes_bot
-  #   build: ./bot
-  #   env_file: 
-  #     - 'bot/.env'
-  #   environment:
-  #     - DB_PATH=data/db.bin
-  #     - SOUNDS_PATH=/tmp/sounds
-  #   restart: always
+  bot:
+    container_name: vibes_bot
+    build: ./bot
+    env_file: 
+      - 'bot/.env'
+    environment:
+      - DB_PATH=data/db.bin
+      - SOUNDS_PATH=/tmp/sounds
+    restart: always
