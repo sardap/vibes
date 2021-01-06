@@ -388,10 +388,10 @@ class MusicPlayer extends React.Component {
 
 	get_house = () => {
 		if(this.state.wacky){
-			return"house_invert.png"
+			return "images/house_invert.png"
 		}
 
-		return "house.png"
+		return "images/house.png"
 	}
 
 	renderToggleButton = () => {

@@ -182,7 +182,7 @@ _debug_bin
 
 data/
 
-sounds_minecraft/
+sounds_*/
 
 house_invert_old.png
 house_old.png

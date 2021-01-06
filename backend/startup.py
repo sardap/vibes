@@ -390,6 +390,7 @@ def get_weather_effects_file(weather_state=Weather(), duration=0):
 def backgroundgen():
 	for i in range(0, 24):
 		for music_set in COMPLETE_SET:
+			# Thread(target=get_time_music, args=(i, music_set, Weather())).start()
 			get_time_music(hour=i, set=music_set, weather_state=Weather())
 
 def main():
