@@ -31,7 +31,7 @@ EXPOSE 5000
 
 ENV FFMPEG_LOCATION="/usr/bin/ffmpeg"
 ENV SERVE="true"
-ENV STATIC_FOLDER="app/frontend"
+ENV STATIC_FOLDER="/app/frontend"
 ENV TMP_PATH="/tmp_sounds"
 
 CMD ["python3", "startup.py"]
