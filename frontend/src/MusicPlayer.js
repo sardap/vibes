@@ -149,12 +149,17 @@ class MusicPlayer extends React.Component {
 	}
 
 	getRandomGame() {
+		//Big brain lock
 		while(this.enabled_sets.length == 0) {
 		}
 
 		const now = new Date();
-		var x = 0;
-		var seed = parseInt(x + this.getMin(now) + now.getDay() + now.getMonth() + now.getFullYear());
+		var seed = parseInt(
+			this.rand(parseInt(this.getMin(now))) + 
+			now.getDay() + 
+			now.getMonth() + 
+			now.getFullYear()
+		);
 		
 		console.log("Seed: " + seed);
 
