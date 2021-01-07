@@ -154,9 +154,10 @@ class MusicPlayer extends React.Component {
 		}
 
 		const now = new Date();
-		console.log(this.getMin(now));
+		console.log("Min: " + this.getMin(now));
 		var seed = parseInt(
 			this.getMin(now) + 
+			now.getHours() +
 			now.getDay() + 
 			now.getMonth() + 
 			now.getFullYear()
