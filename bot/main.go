@@ -204,7 +204,7 @@ func joinCaller(
 
 	targetChannel, err := getUserChannel(m.GuildID, m.Author.ID, guild.Channels)
 	if err != nil {
-		return nil, fmt.Errorf("Must be in a channel on the target server to pick it up")
+		return nil, fmt.Errorf("Must be in a channel on the target server to vibe")
 	}
 
 	return s.ChannelVoiceJoin(m.GuildID, targetChannel, false, true)
@@ -231,6 +231,22 @@ func firstDigit(x int) int {
 	return result
 }
 
+func createSeed(offset string) int64 {
+	t := offsetTime(offset)
+	str := fmt.Sprintf(
+		"%d%d%d%d%d",
+		firstDigit(t.Minute()), t.Hour(), t.Day(), t.Month(), t.Year(),
+	)
+
+	result, _ := strconv.ParseInt(str, 10, 64)
+	return result
+}
+
+func randomGame(sets []string, offset string) string {
+	rand.Seed(createSeed(offset))
+	return sets[rand.Intn(len(sets))]
+}
+
 func (i *guildInfo) startVibing(
 	invoker vibes.Invoker, v *discordgo.VoiceConnection,
 	g *discordgo.Guild,
@@ -254,7 +270,7 @@ func (i *guildInfo) startVibing(
 		err := func() error {
 			vl := getVoiceLock(v.GuildID)
 			if vl == nil {
-				return fmt.Errorf("disconnected")
+				return fmt.Errorf("disconnected\n")
 			}
 
 			s := time.Now().UTC()
@@ -266,7 +282,7 @@ func (i *guildInfo) startVibing(
 				bellPlayed = true
 			} else {
 				bytes, err = invoker.GetSample(
-					offsetTime(i.Offset).Hour(), sets[rand.Intn(len(sets))], i.City, i.Country,
+					offsetTime(i.Offset).Hour(), randomGame(sets, i.Offset), i.City, i.Country,
 				)
 				offsetStart = true
 			}
