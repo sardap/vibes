@@ -236,6 +236,9 @@ func offsetTime(offset string) time.Time {
 
 //Gross
 func firstDigit(x int) int {
+	if x < 10 {
+		return 0
+	}
 	str := strconv.Itoa(x)
 	result, _ := strconv.Atoi(string(str[0]))
 	return result
