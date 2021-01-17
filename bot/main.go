@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -51,7 +49,6 @@ var (
 
 func init() {
 	defaultOptions.RawOutput = true
-	defaultOptions.Bitrate = 48
 	defaultOptions.Volume = 50
 	defaultOptions.Application = "audio"
 
@@ -286,31 +283,46 @@ func (i *guildInfo) startVibing(
 		err := func() error {
 			vl := getVoiceLock(v.GuildID)
 			if vl == nil {
-				return fmt.Errorf("disconnected\n")
+				return fmt.Errorf("disconnected")
 			}
 
-			s := time.Now().UTC()
-			var bytes []byte
-			var err error
+			// s := time.Now().UTC()
 			offsetStart := false
-			if !bellPlayed && firstDigit(offsetTime(i.Offset).Minute()) == 0 {
-				bytes, err = invoker.GetBell()
+			// if !bellPlayed && firstDigit(offsetTime(i.Offset).Minute()) == 0 {
+			if true {
+				fmt.Printf("BELL TIME\n")
+				stream, err := invoker.GetBellStream()
+				if err != nil {
+					return err
+				}
+				defer stream.Close()
 				bellPlayed = true
-			} else {
+				encodingSession, err := dca.EncodeMem(stream, defaultOptions)
+				if err != nil {
+					return err
+				}
 
-				bytes, err = invoker.GetSample(
-					offsetTime(i.Offset).Hour(), randomGame(sets, i.Offset), i.City, i.Country,
-				)
-				offsetStart = true
+				v.Speaking(true)
+				done := make(chan error)
+				dca.NewStream(encodingSession, v, done)
+				err = <-done
+				v.Speaking(false)
+				encodingSession.Cleanup()
 			}
+
+			stream, err := invoker.GetSampleStream(
+				offsetTime(i.Offset).Hour(), randomGame(sets, i.Offset), i.City, i.Country,
+			)
+			defer stream.Close()
+			offsetStart = true
 			if err != nil {
 				return err
 			}
 
-			fileName := filepath.Join(soundsPath, fmt.Sprintf("%d.ogg", rand.Int()))
-			ioutil.WriteFile(fileName, bytes, 0644)
-			defer os.Remove(filepath.Join(soundsPath, fileName))
-			fmt.Printf("download time:%dms\n", time.Now().UTC().Sub(s).Milliseconds())
+			// fileName := filepath.Join(soundsPath, fmt.Sprintf("%d.ogg", rand.Int()))
+			// ioutil.WriteFile(fileName, bytes, 0644)
+			// defer os.Remove(filepath.Join(soundsPath, fileName))
+			// fmt.Printf("download time:%dms\n", time.Now().UTC().Sub(s).Milliseconds())
 
 			options := defaultOptions
 			if offsetStart {
@@ -320,7 +332,7 @@ func (i *guildInfo) startVibing(
 				options.StartTime = startTime
 			}
 
-			encodingSession, err := dca.EncodeFile(fileName, options)
+			encodingSession, err := dca.EncodeMem(stream, options)
 			if err != nil {
 				return err
 			}
@@ -335,7 +347,7 @@ func (i *guildInfo) startVibing(
 			return nil
 		}()
 		if err != nil {
-			fmt.Printf("%v", err)
+			fmt.Printf("%v\n", err)
 			return
 		}
 	}
