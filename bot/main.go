@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +14,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -24,6 +24,7 @@ import (
 	"github.com/sardap/discom"
 	"github.com/sardap/vibes/bot/vibes"
 	bolt "go.etcd.io/bbolt"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -150,8 +151,9 @@ func setGuildInfo(id string, info guildInfo) error {
 }
 
 type voiceLock struct {
-	lock    *sync.Mutex
+	lock    *semaphore.Weighted
 	channel string
+	playing string
 }
 
 func getVoiceLock(gid string) *voiceLock {
@@ -163,11 +165,13 @@ func getVoiceLock(gid string) *voiceLock {
 	return result
 }
 
-func createVoiceLock(gid, cid string) {
-	voiceLocks.Set(gid, &voiceLock{
-		lock:    &sync.Mutex{},
+func createVoiceLock(gid, cid string) *voiceLock {
+	result := &voiceLock{
+		lock:    semaphore.NewWeighted(1),
 		channel: cid,
-	})
+	}
+	voiceLocks.Set(gid, result)
+	return result
 }
 
 func deleteVoiceLock(gid string) {
@@ -175,9 +179,17 @@ func deleteVoiceLock(gid string) {
 }
 
 func inVoice(gid string) bool {
-	if val := getVoiceLock(gid); val == nil {
+	l := getVoiceLock(gid)
+
+	if l == nil {
 		return false
 	}
+
+	if l.lock.TryAcquire(1) {
+		l.lock.Release(1)
+		return false
+	}
+
 	return true
 }
 
@@ -200,6 +212,7 @@ func joinCaller(
 	guild, err := s.State.Guild(m.GuildID)
 	if err != nil {
 		return nil, fmt.Errorf("could not find your discord server")
+
 	}
 
 	targetChannel, err := getUserChannel(m.GuildID, m.Author.ID, guild.Channels)
@@ -239,6 +252,7 @@ func createSeed(offset string) int64 {
 	)
 
 	result, _ := strconv.ParseInt(str, 10, 64)
+	fmt.Printf("seed: %s, int: %d\n", str, result)
 	return result
 }
 
@@ -256,7 +270,9 @@ func (i *guildInfo) startVibing(
 		return
 	}
 
-	createVoiceLock(v.GuildID, v.ChannelID)
+	vl := createVoiceLock(v.GuildID, v.ChannelID)
+	vl.lock.Acquire(context.TODO(), 1)
+	defer vl.lock.Release(1)
 	defer deleteVoiceLock(v.GuildID)
 
 	bellPlayed := false
@@ -281,6 +297,7 @@ func (i *guildInfo) startVibing(
 				bytes, err = invoker.GetBell()
 				bellPlayed = true
 			} else {
+
 				bytes, err = invoker.GetSample(
 					offsetTime(i.Offset).Hour(), randomGame(sets, i.Offset), i.City, i.Country,
 				)

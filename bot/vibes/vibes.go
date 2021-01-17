@@ -140,6 +140,7 @@ func (i *Invoker) GetBell() ([]byte, error) {
 
 //GetSample returns sample from server
 func (i *Invoker) GetSample(hour int, set, city, country string) ([]byte, error) {
+	fmt.Printf("Getting Set:%s Hour:%d\n", set, hour)
 	path := fmt.Sprintf("api/get_sample/%s/%d", set, hour)
 	url := url.URL{
 		Scheme: i.Scheme, Host: i.Endpoint, Path: path,

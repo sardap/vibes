@@ -12,4 +12,5 @@ require (
 	github.com/sardap/discgov v0.0.0-20201102143011-133c67d2682b
 	github.com/sardap/discom v1.1.1
 	go.etcd.io/bbolt v1.3.5
+	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 )
