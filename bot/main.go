@@ -286,10 +286,8 @@ func (i *guildInfo) startVibing(
 				return fmt.Errorf("disconnected")
 			}
 
-			// s := time.Now().UTC()
 			offsetStart := false
-			// if !bellPlayed && firstDigit(offsetTime(i.Offset).Minute()) == 0 {
-			if true {
+			if !bellPlayed && firstDigit(offsetTime(i.Offset).Minute()) == 0 {
 				fmt.Printf("BELL TIME\n")
 				stream, err := invoker.GetBellStream()
 				if err != nil {
@@ -318,11 +316,6 @@ func (i *guildInfo) startVibing(
 			if err != nil {
 				return err
 			}
-
-			// fileName := filepath.Join(soundsPath, fmt.Sprintf("%d.ogg", rand.Int()))
-			// ioutil.WriteFile(fileName, bytes, 0644)
-			// defer os.Remove(filepath.Join(soundsPath, fileName))
-			// fmt.Printf("download time:%dms\n", time.Now().UTC().Sub(s).Milliseconds())
 
 			options := defaultOptions
 			if offsetStart {

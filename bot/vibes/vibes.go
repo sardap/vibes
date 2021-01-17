@@ -105,40 +105,6 @@ func (i *Invoker) GetSampleLength() (time.Duration, error) {
 
 }
 
-//GetBell returns bell sound from server
-func (i *Invoker) GetBell() ([]byte, error) {
-	url := url.URL{
-		Scheme: i.Scheme, Host: i.Endpoint, Path: "api/get_bell",
-	}
-
-	req, err := http.NewRequest("GET", url.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, errors.Wrap(
-			err,
-			fmt.Sprintf("unable to fetch %s", url.String()),
-		)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf("Unable to fetch %s body %s", url.String(), string(bodyBytes))
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-
-	return bodyBytes, err
-}
-
 //GetBellStream returns bell sound stream from server
 func (i *Invoker) GetBellStream() (io.ReadCloser, error) {
 	url := url.URL{
@@ -208,45 +174,4 @@ func (i *Invoker) GetSampleStream(hour int, set, city, country string) (io.ReadC
 	}
 
 	return resp.Body, err
-}
-
-//GetSample returns sample from server
-func (i *Invoker) GetSample(hour int, set, city, country string) ([]byte, error) {
-	fmt.Printf("Getting Set:%s Hour:%d\n", set, hour)
-	path := fmt.Sprintf("api/get_sample/%s/%d", set, hour)
-	url := url.URL{
-		Scheme: i.Scheme, Host: i.Endpoint, Path: path,
-	}
-	q := url.Query()
-	q.Set("access_key", i.AccessKey)
-	q.Set("city_name", city)
-	q.Set("country_code", country)
-	url.RawQuery = q.Encode()
-
-	req, err := http.NewRequest("GET", url.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, errors.Wrap(
-			err,
-			fmt.Sprintf("unable to fetch %s", url.String()),
-		)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf("Unable to fetch %s body %s", url.String(), string(bodyBytes))
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-
-	return bodyBytes, err
 }
