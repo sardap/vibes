@@ -403,6 +403,7 @@ func startVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
 				m.Author.ID,
 			),
 		)
+		return
 	}
 
 	info := getGuildInfo(m.GuildID)
