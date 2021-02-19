@@ -10,7 +10,7 @@ require (
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/pkg/errors v0.9.1
 	github.com/sardap/discgov v0.0.0-20201102143011-133c67d2682b
-	github.com/sardap/discom v1.1.1
+	github.com/sardap/discom v1.1.4
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 )

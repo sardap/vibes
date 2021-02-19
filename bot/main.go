@@ -40,64 +40,93 @@ var (
 	setupVibeRe    = regexp.MustCompile(setupVibePattern)
 	stopVibeRe     = regexp.MustCompile(stopVibePattern)
 	serverInfoRe   = regexp.MustCompile(serverInfoPattern)
-	vibesInvoker   vibes.Invoker
-	soundsPath     = os.Getenv("SOUNDS_PATH")
 	bucketName     = []byte("guilds")
 	voiceLocks     = cmap.New()
 	defaultOptions = dca.StdEncodeOptions
 )
+
+type vibeInfo struct {
+	command string
+	invoker vibes.Invoker
+}
 
 func init() {
 	defaultOptions.RawOutput = true
 	defaultOptions.Volume = 50
 	defaultOptions.Application = "audio"
 
-	commandSet = discom.CreateCommandSet(regexp.MustCompile(prefix))
+	commandSet = discom.CreateCommandSet(regexp.MustCompile(prefix), errorHandler)
 
 	err := commandSet.AddCommand(discom.Command{
-		Re: starVibeRe, Handler: startVibeCmd,
-		Example:     "start",
-		Description: "Joins the chat channel and vibes",
-		CaseInSense: true,
+		Name:            "setup",
+		Handler:         setupVibeCmd,
+		Example:         "setup US \"new york\" -0500",
+		Description:     "setup server info in bot db the number is the offset",
+		CaseInsensitive: true,
 	})
 	if err != nil {
 		panic(err)
 	}
 
 	err = commandSet.AddCommand(discom.Command{
-		Re: setupVibeRe, Handler: setupVibeCmd,
-		Example:     "setup US \"new york\" -0500",
-		Description: "setup server info in bot db the number is the offset",
-		CaseInSense: true,
+		Name:            "stop",
+		Handler:         stopVibeCmd,
+		Example:         "",
+		Description:     "stop vibing",
+		CaseInsensitive: true,
 	})
 	if err != nil {
 		panic(err)
 	}
 
 	err = commandSet.AddCommand(discom.Command{
-		Re: stopVibeRe, Handler: stopVibeCmd,
-		Example:     "stop",
-		Description: "stop vibing",
-		CaseInSense: true,
+		Name:            "info",
+		Handler:         serverInfoCmd,
+		Example:         "",
+		Description:     "get server setup info",
+		CaseInsensitive: true,
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	err = commandSet.AddCommand(discom.Command{
-		Re: serverInfoRe, Handler: serverInfoCmd,
-		Example:     "info",
-		Description: "get server setup info",
-		CaseInSense: true,
-	})
-	if err != nil {
-		panic(err)
-	}
+	vibeSets := make(map[string]*vibeInfo)
 
-	vibesInvoker = vibes.Invoker{
-		Endpoint:  os.Getenv("VIBES_ENDPOINT"),
-		AccessKey: os.Getenv("VIBES_ACCESS_KEY"),
-		Scheme:    os.Getenv("VIBES_SCHEME"),
+	i := 0
+	for {
+		str := os.Getenv(fmt.Sprintf("VIBES_%d", i))
+		if str == "" {
+			break
+		}
+
+		splits := strings.Split(str, ",")
+		if len(splits) != 4 {
+			panic("vibe info has wrong number of args")
+		}
+
+		vibeSets[fmt.Sprintf("%s_start", splits[0])] = &vibeInfo{
+			command: splits[0],
+			invoker: vibes.Invoker{
+				Endpoint:  splits[2],
+				AccessKey: splits[3],
+				Scheme:    splits[1],
+			},
+		}
+
+		i++
+
+		err := commandSet.AddCommand(discom.Command{
+			Name: fmt.Sprintf("%s_start", splits[0]),
+			Handler: func(s1 *discordgo.Session, mc *discordgo.MessageCreate, s2 ...string) error {
+				return vibeSets[s2[0]].startVibeCmd(s1, mc, s2...)
+			},
+			Example:         "",
+			Description:     "Joins the chat channel and vibes",
+			CaseInsensitive: true,
+		})
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	dbClient, err = bolt.Open(os.Getenv("DB_PATH"), 0666, nil)
@@ -267,6 +296,7 @@ func (i *guildInfo) startVibing(
 ) {
 	sets, err := invoker.GetSets()
 	if err != nil {
+		fmt.Printf("ERROR getting sets %s\n", err)
 		return
 	}
 
@@ -290,7 +320,7 @@ func (i *guildInfo) startVibing(
 			}
 
 			offsetStart := false
-			if !bellPlayed && firstDigit(offsetTime(i.Offset).Minute()) == 0 {
+			if !bellPlayed && offsetTime(i.Offset).Minute() == 0 {
 				fmt.Printf("BELL TIME\n")
 				stream, err := invoker.GetBellStream()
 				if err != nil {
@@ -349,7 +379,18 @@ func (i *guildInfo) startVibing(
 	}
 }
 
-func setupVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
+func errorHandler(s *discordgo.Session, m *discordgo.MessageCreate, err error) {
+	s.ChannelMessageSend(
+		m.ChannelID,
+		fmt.Sprintf("<@%s> error: %s", m.Author.ID, err),
+	)
+}
+
+func setupVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) error {
+	if !setupVibeRe.Match([]byte(strings.ToLower(m.Content))) {
+		return fmt.Errorf("invalid setup")
+	}
+
 	matches := setupVibeRe.FindAllStringSubmatch(strings.ToLower(m.Content), -1)
 	country := matches[0][1]
 	city := matches[0][2]
@@ -357,13 +398,7 @@ func setupVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	offsetHour, err := strconv.Atoi(timeOffsetStr[:2])
 	if err != nil || offsetHour > 14 || offsetHour < -12 {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> invalid timezone offset",
-				m.Author.ID,
-			),
-		)
+		return fmt.Errorf("invalid timezone offset")
 	}
 
 	setGuildInfo(m.GuildID, guildInfo{
@@ -377,19 +412,14 @@ func setupVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
 			m.Author.ID,
 		),
 	)
+
+	return nil
 }
 
-func serverInfoCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
+func serverInfoCmd(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) error {
 	info := getGuildInfo(m.GuildID)
 	if info == nil {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> No sever info in my DB!",
-				m.Author.ID,
-			),
-		)
-		return
+		return fmt.Errorf("no sever info in my DB")
 	}
 
 	s.ChannelMessageSend(
@@ -400,62 +430,40 @@ func serverInfoCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
 		),
 	)
 
+	return nil
 }
 
-func startVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (v *vibeInfo) startVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) error {
 	if inVoice(m.GuildID) {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> already vibing dude",
-				m.Author.ID,
-			),
-		)
-		return
+		return fmt.Errorf("already vibing")
 	}
 
 	info := getGuildInfo(m.GuildID)
 	if info == nil {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> please setup server info first check help",
-				m.Author.ID,
-			),
-		)
-		return
+		return fmt.Errorf("please setup server info first check help")
 	}
 
-	v, err := joinCaller(s, m)
+	voice, err := joinCaller(s, m)
 	if err != nil {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> Unable to find you in a channel! Err: %v",
-				m.Author.ID, err,
-			),
-		)
-		return
+		return fmt.Errorf("Unable to find you in a channel! Err: %v", err)
 	}
 
 	g, _ := s.Guild(m.GuildID)
 
-	go info.startVibing(vibesInvoker, v, g)
+	go info.startVibing(v.invoker, voice, g)
+
+	return nil
 }
 
-func stopVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
+func stopVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) error {
 	if !inVoice(m.GuildID) {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> no vibes are happening right now",
-				m.Author.ID,
-			),
-		)
+		return fmt.Errorf("no vibes are happening right now")
 	}
 
 	deleteVoiceLock(m.GuildID)
 	s.ChannelVoiceJoin(m.GuildID, "", true, true)
+
+	return nil
 }
 
 func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
@@ -511,5 +519,4 @@ func main() {
 
 	// Cleanly close down the Discord session.
 	discord.Close()
-
 }
