@@ -7,5 +7,12 @@
 		"sardap",
 		"vibing",
 		"wtforms"
+	],
+	"spellright.language": [
+		"en"
+	],
+	"spellright.documentTypes": [
+		"markdown",
+		"latex"
 	]
 }

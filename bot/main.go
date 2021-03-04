@@ -121,7 +121,7 @@ func init() {
 				return vibeSets[s2[0]].startVibeCmd(s1, mc, s2...)
 			},
 			Example:         "",
-			Description:     "Joins the chat channel and vibes",
+			Description:     fmt.Sprintf("Joins the chat channel and starts to %s", splits[0]),
 			CaseInsensitive: true,
 		})
 		if err != nil {
@@ -178,6 +178,7 @@ func setGuildInfo(id string, info guildInfo) error {
 
 type voiceLock struct {
 	lock    *semaphore.Weighted
+	kill    chan bool
 	channel string
 	playing string
 }
@@ -195,6 +196,7 @@ func createVoiceLock(gid, cid string) *voiceLock {
 	result := &voiceLock{
 		lock:    semaphore.NewWeighted(1),
 		channel: cid,
+		kill:    make(chan bool),
 	}
 	voiceLocks.Set(gid, result)
 	return result
@@ -367,8 +369,13 @@ func (i *guildInfo) startVibing(
 			defer v.Speaking(false)
 			done := make(chan error)
 			dca.NewStream(encodingSession, v, done)
-			err = <-done
-			encodingSession.Cleanup()
+			defer encodingSession.Cleanup()
+			select {
+			case err = <-done:
+				break
+			case <-vl.kill:
+				return fmt.Errorf("killing exsiting")
+			}
 
 			return nil
 		}()
@@ -435,7 +442,10 @@ func serverInfoCmd(s *discordgo.Session, m *discordgo.MessageCreate, args ...str
 
 func (v *vibeInfo) startVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate, args ...string) error {
 	if inVoice(m.GuildID) {
-		return fmt.Errorf("already vibing")
+		vl := getVoiceLock(m.GuildID)
+		vl.kill <- true
+		deleteVoiceLock(m.GuildID)
+		// return fmt.Errorf("already vibing")
 	}
 
 	info := getGuildInfo(m.GuildID)
