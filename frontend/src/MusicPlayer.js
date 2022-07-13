@@ -53,63 +53,62 @@ class MusicPlayer extends React.Component {
 		this.weatherUpdate();
 
 		//Get music set
-		const url = window.location.origin + "/api/get_set" + "?" + 
+		const url = window.location.origin + "/api/get_set" + "?" +
 			"access_key=" + this.access_key;
 
 		fetch(url)
-			.then(function(data){
+			.then(function (data) {
 				return data.json();
 			})
-			.then((json) =>{
+			.then((json) => {
 				this.enabled_sets = json
 			});
-	 }  
+	}
 
 	pad(num) {
 		var result = num + "";
-		while(result.length < 2) {
+		while (result.length < 2) {
 			result = "0" + result;
 		}
 		return result;
 	}
 
 	makeID(length) {
-		var result           = '';
-		var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		var result = '';
+		var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 		var charactersLength = characters.length;
-		for ( var i = 0; i < length; i++ ) {
-		   result += characters.charAt(Math.floor(Math.random() * charactersLength));
+		for (var i = 0; i < length; i++) {
+			result += characters.charAt(Math.floor(Math.random() * charactersLength));
 		}
 		return result;
 	}
-	
+
 
 	playWeatherEffect() {
-		const weather_audio_src = window.location.origin + "/api/get_weather_effect/" + this.makeID(20) + "?" + 
-			"access_key=" + this.access_key + "&" +
-			"city_name=" +  this.city + "&" +
-			"country_code=" + this.country_code;
-		
+		const weather_audio_src = window.location.origin + "/api/get_weather_effect/" +
+			this.makeID(20) + "/" +
+			this.country_code + "/" +
+			this.city + "?" +
+			"access_key=" + this.access_key;
+
 		this.weather_audio.pause();
 		this.weather_audio.src = weather_audio_src;
 		this.weather_audio.play();
 	}
 
 	weatherUpdate() {
-		if(this.state.playing) {
+		if (this.state.playing) {
 			this.playWeatherEffect();
 		}
 
-		const url = window.location.origin + "/api/get_weather" + "?" + 
-			"access_key=" + this.access_key + "&" +
-			"city_name=" +  this.city + "&" +
-			"country_code=" + this.country_code;
+		const url = window.location.origin + "/api/get_weather/" + this.country_code + "/" + this.city + "?" +
+			"access_key=" + this.access_key;
 
 		fetch(url)
-			.then(function(data){
+			.then(function (data) {
 				return data.json();
 			})
-			.then((json) =>{
+			.then((json) => {
 				this.setState({
 					weather_state: json
 				});
@@ -124,8 +123,8 @@ class MusicPlayer extends React.Component {
 	clockUpdate() {
 		const background = this.getBackground();
 		document.body.style = 'background: ' + background + ';';
-		
-		if(background) {
+
+		if (background) {
 			this.setState({
 				current_time: this.getCurrentTimeString(),
 				timer_text_color: this.getContrastYIQ(background)
@@ -134,7 +133,7 @@ class MusicPlayer extends React.Component {
 	}
 
 	getMin(now) {
-		if(now.getMinutes() < 10) {
+		if (now.getMinutes() < 10) {
 			return "0";
 		}
 
@@ -150,19 +149,19 @@ class MusicPlayer extends React.Component {
 
 	getRandomGame() {
 		//Big brain lock
-		while(this.enabled_sets.length == 0) {
+		while (this.enabled_sets.length == 0) {
 		}
 
 		const now = new Date();
 		console.log("Min: " + this.getMin(now));
 		var seed = parseInt(
-			this.getMin(now) + 
+			this.getMin(now) +
 			now.getHours() +
-			now.getDay() + 
-			now.getMonth() + 
+			now.getDay() +
+			now.getMonth() +
 			now.getFullYear()
 		);
-		
+
 		console.log("Seed: " + seed);
 
 		var max = this.enabled_sets.length;
@@ -170,7 +169,7 @@ class MusicPlayer extends React.Component {
 		var num = this.rand(seed) * 1000000000;
 		console.log("Random Number: " + num);
 		var idx = Math.floor(num % (max - min) + min);
-		
+
 		return this.enabled_sets[idx];
 	}
 
@@ -179,12 +178,12 @@ class MusicPlayer extends React.Component {
 
 		this.playWeatherEffect();
 
-		window.audio.volume	= this.state.volume / 100;
+		window.audio.volume = this.state.volume / 100;
 
 		var hour = now.getHours()
-		
-		if(this.state.wacky) {
-			if(hour >= 12) {
+
+		if (this.state.wacky) {
+			if (hour >= 12) {
 				hour = hour - 12
 			} else {
 				hour = hour + 12
@@ -194,15 +193,12 @@ class MusicPlayer extends React.Component {
 		var game = this.getRandomGame()
 		console.log(game)
 
-		const next_src = window.location.origin + "/api/get_sample/" + game + "/" + hour + "?" + 
-			"access_key=" + this.access_key + "&" +
-			"city_name=" +  this.city + "&" +
-			"country_code=" + this.country_code;
-
+		const next_src = window.location.origin + "/api/get_sample/" + this.country_code + "/" + this.city + "/" + game + "/" + hour + "?" +
+			"access_key=" + this.access_key;
 		window.audio.pause();
 		window.audio.src = next_src;
-		window.audio.onloadedmetadata = function() {
-			const x = (now.getMinutes() % 10) * 60+ now.getSeconds();
+		window.audio.onloadedmetadata = function () {
+			const x = (now.getMinutes() % 10) * 60 + now.getSeconds();
 			console.log("time " + x);
 			console.log("duration " + window.audio.duration);
 			window.audio.currentTime = x;
@@ -217,29 +213,29 @@ class MusicPlayer extends React.Component {
 	}
 
 	musicUpdate = () => {
-	
+
 		const now = new Date();
 
-		if(this.bell_playing){
-			if(window.audio.paused) {
+		if (this.bell_playing) {
+			if (window.audio.paused) {
 				this.bell_playing = false
 				this.vol_mod = 0
-				this.updateVol()	
+				this.updateVol()
 			}
 			return
 		}
 
-		if(now.getMinutes() == 59) {
+		if (now.getMinutes() == 59) {
 			this.vol_mod = 1 - now.getSeconds() / 60
 			this.updateVol()
 		}
 
-		if(now.getMinutes() == 0) {
+		if (now.getMinutes() == 0) {
 			this.vol_mod = now.getSeconds() / 60
 			this.updateVol()
 		}
 
-		if(now.getHours() != this.state.hour && !this.bell_played) {
+		if (now.getHours() != this.state.hour && !this.bell_played) {
 			this.bell_playing = true
 			console.log("Playing Bell Sound!");
 			this.vol_mod = 1
@@ -250,8 +246,8 @@ class MusicPlayer extends React.Component {
 			this.bell_played = true
 			return
 		}
-		
-		if(this.bell_played && now.getHours() != this.state.hour || window.audio.currentTime === window.audio.duration) {
+
+		if (this.bell_played && now.getHours() != this.state.hour || window.audio.currentTime === window.audio.duration) {
 			this.startVibing();
 			this.bell_played = false
 		}
@@ -271,7 +267,7 @@ class MusicPlayer extends React.Component {
 		var hex = c.toString(16);
 		return hex.length == 1 ? "0" + hex : hex;
 	}
-	  
+
 	rgbToHex(r, g, b) {
 		return "#" + this.componentToHex(r) + this.componentToHex(g) + this.componentToHex(b);
 	}
@@ -284,11 +280,11 @@ class MusicPlayer extends React.Component {
 			b: parseInt(result[3], 16)
 		} : null;
 	}
-	  
+
 	getColor(now, start_time, end_time, start_color, middle_color, end_color) {
 		const middle = new Date((start_time.getTime() + end_time.getTime()) / 2);
-		
-		if(now < middle) {
+
+		if (now < middle) {
 			start_color = this.hexToRgb(start_color);
 			end_color = this.hexToRgb(middle_color);
 			start_time = start_time;
@@ -309,17 +305,17 @@ class MusicPlayer extends React.Component {
 		return this.rgbToHex(r, g, b);
 	}
 
-	getContrastYIQ(hexcolor){
+	getContrastYIQ(hexcolor) {
 		hexcolor = hexcolor.replace("#", "");
-		var r = parseInt(hexcolor.substr(0,2),16);
-		var g = parseInt(hexcolor.substr(2,2),16);
-		var b = parseInt(hexcolor.substr(4,2),16);
-		var yiq = ((r*299)+(g*587)+(b*114))/1000;
+		var r = parseInt(hexcolor.substr(0, 2), 16);
+		var g = parseInt(hexcolor.substr(2, 2), 16);
+		var b = parseInt(hexcolor.substr(4, 2), 16);
+		var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
 		return (yiq >= 128) ? 'black' : 'white';
 	}
 
 	getBackground() {
-		if(!this.state.lat || !this.state.lng){
+		if (!this.state.lat || !this.state.lng) {
 			return;
 		}
 
@@ -327,10 +323,10 @@ class MusicPlayer extends React.Component {
 		const times = SunCalc.getTimes(now, this.state.lat, this.state.lng, now);
 
 		let sky_day = "#87CEEB";
-		if(this.state.weather_state) {
+		if (this.state.weather_state) {
 			const cloud_state = this.state.weather_state.weather.cloud;
 
-			if(cloud_state == 2) {
+			if (cloud_state == 2) {
 				sky_day = "#D2D4D8";
 			}
 		}
@@ -344,19 +340,19 @@ class MusicPlayer extends React.Component {
 		const sky_dawnset = "#1e3641"
 		var result;
 
-		if(now > times.nightEnd && now < times.dawn) {
+		if (now > times.nightEnd && now < times.dawn) {
 			// dawn
 			result = this.getColor(now, times.nightEnd, times.dawn, sky_night, sky_dawnset, sky_dawn);
-		} else if(now > times.dawn && now < times.sunriseEnd) {
+		} else if (now > times.dawn && now < times.sunriseEnd) {
 			// Sunrise 
 			result = this.getColor(now, times.dawn, times.sunriseEnd, sky_dawn, sky_sunrise, sky_day);
-		} else if(now > times.sunriseEnd && now < times.sunsetStart) {
+		} else if (now > times.sunriseEnd && now < times.sunsetStart) {
 			// Daytime
 			result = sky_day;
-		} else if(now > times.sunsetStart && now < times.dusk) {
+		} else if (now > times.sunsetStart && now < times.dusk) {
 			// Sunset
 			result = this.getColor(now, times.sunsetStart, times.dusk, sky_day, sky_sunset, sky_dusk);
-		} else if(now > times.dusk && now < times.night) {
+		} else if (now > times.dusk && now < times.night) {
 			// Dusk
 			result = this.getColor(now, times.dusk, times.night, sky_dusk, sky_duskset, sky_night);
 		} else {
@@ -364,7 +360,7 @@ class MusicPlayer extends React.Component {
 			result = sky_night;
 		}
 
-		if(this.state.wacky){
+		if (this.state.wacky) {
 			result = invert(result);
 		}
 
@@ -376,7 +372,7 @@ class MusicPlayer extends React.Component {
 			<div className="text-center">
 				<Spinner animation="border" role="status">
 					<span className="sr-only">Loading...</span>
-				</Spinner>	
+				</Spinner>
 			</div>
 		);
 	}
@@ -388,13 +384,13 @@ class MusicPlayer extends React.Component {
 		this.weather_audio.volume = (value / 100);
 		this.updateVol()
 	}
-	
+
 	updateVol = () => {
-		window.audio.volume	= (this.state.volume / 100) * this.vol_mod;
+		window.audio.volume = (this.state.volume / 100) * this.vol_mod;
 	}
 
 	get_house = () => {
-		if(this.state.wacky){
+		if (this.state.wacky) {
 			return "images/house_invert.png"
 		}
 
@@ -414,7 +410,7 @@ class MusicPlayer extends React.Component {
 						this.startVibing()
 					});
 				}}
-				>
+			>
 				<CheckIcon />
 			</ToggleButton>
 		</div>
@@ -435,7 +431,7 @@ class MusicPlayer extends React.Component {
 					orientation="horizontal"
 					onChange={this.handleOnChange}
 				/>
-				{ this.state.playing ? this.renderToggleButton() : <></> }
+				{this.state.playing ? this.renderToggleButton() : <></>}
 			</>
 		);
 	}
@@ -450,15 +446,15 @@ class MusicPlayer extends React.Component {
 		return (
 			<div>
 				<div className="centered">
-					<div className="text-center display-4" style={{color : this.state.timer_text_color}}>
-						{new Date().toLocaleString('en-us', {  weekday: 'long' })}
+					<div className="text-center display-4" style={{ color: this.state.timer_text_color }}>
+						{new Date().toLocaleString('en-us', { weekday: 'long' })}
 					</div>
-					<div className="text-center display-4" style={{color : this.state.timer_text_color}}>{this.state.current_time}</div>
-					{this.state.loading ? this.showLoading() : (this.state.error ? this.showError() : this.showContent()) }
+					<div className="text-center display-4" style={{ color: this.state.timer_text_color }}>{this.state.current_time}</div>
+					{this.state.loading ? this.showLoading() : (this.state.error ? this.showError() : this.showContent())}
 				</div>
 			</div>
 		)
 	}
 }
-  
+
 export default MusicPlayer;

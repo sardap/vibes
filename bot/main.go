@@ -1,116 +1,206 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
-	"sync"
-	"syscall"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/sardap/discgov"
-	"github.com/sardap/discom"
 	"github.com/sardap/vibes/bot/vibes"
 	bolt "go.etcd.io/bbolt"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
-	starVibePattern   = "start"
-	setupVibePattern  = "setup ([a-z]{2}) \"(.*?)\" (-?\\d{4})"
-	stopVibePattern   = "stop"
-	serverInfoPattern = "info"
+	setupVibePattern = "setup ([a-z]{2}) \"(.*?)\" (-?\\d{4})"
 )
 
 var (
-	prefix         = os.Getenv("BOT_PREFIX")
 	dbClient       *bolt.DB
-	commandSet     *discom.CommandSet
-	starVibeRe     = regexp.MustCompile(starVibePattern)
-	setupVibeRe    = regexp.MustCompile(setupVibePattern)
-	stopVibeRe     = regexp.MustCompile(stopVibePattern)
-	serverInfoRe   = regexp.MustCompile(serverInfoPattern)
-	vibesInvoker   vibes.Invoker
-	soundsPath     = os.Getenv("SOUNDS_PATH")
 	bucketName     = []byte("guilds")
 	voiceLocks     = cmap.New()
 	defaultOptions = dca.StdEncodeOptions
 )
 
+type vibeInfo struct {
+	command string
+	invoker vibes.Invoker
+}
+
+type commandSet struct {
+	commands map[string]*discordgo.ApplicationCommand
+	handlers map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
+}
+
 func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func createCommandSet(s *discordgo.Session) commandSet {
 	defaultOptions.RawOutput = true
-	defaultOptions.Bitrate = 48
 	defaultOptions.Volume = 50
 	defaultOptions.Application = "audio"
 
-	commandSet = discom.CreateCommandSet(regexp.MustCompile(prefix))
+	commands := make(map[string]*discordgo.ApplicationCommand)
 
-	err := commandSet.AddCommand(discom.Command{
-		Re: starVibeRe, Handler: startVibeCmd,
-		Example:     "start",
-		Description: "Joins the chat channel and vibes",
-		CaseInSense: true,
-	})
-	if err != nil {
-		panic(err)
+	commands["setup"] = &discordgo.ApplicationCommand{
+		Name:        "setup",
+		Description: "setup server info in bot db",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "country",
+				Description: "US (Country Code)",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "city",
+				Description: "new york",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "time-offset",
+				Description: "-0500",
+				Required:    true,
+			},
+		},
 	}
 
-	err = commandSet.AddCommand(discom.Command{
-		Re: setupVibeRe, Handler: setupVibeCmd,
-		Example:     "setup US \"new york\" -0500",
-		Description: "setup server info in bot db the number is the offset",
-		CaseInSense: true,
-	})
-	if err != nil {
-		panic(err)
+	commands["info"] = &discordgo.ApplicationCommand{
+		Name:        "info",
+		Description: "get guild info",
+		Options:     []*discordgo.ApplicationCommandOption{},
 	}
 
-	err = commandSet.AddCommand(discom.Command{
-		Re: stopVibeRe, Handler: stopVibeCmd,
-		Example:     "stop",
-		Description: "stop vibing",
-		CaseInSense: true,
-	})
-	if err != nil {
-		panic(err)
+	commands["stop"] = &discordgo.ApplicationCommand{
+		Name:        "stop",
+		Description: "stops the vibes",
+		Options:     []*discordgo.ApplicationCommandOption{},
 	}
 
-	err = commandSet.AddCommand(discom.Command{
-		Re: serverInfoRe, Handler: serverInfoCmd,
-		Example:     "info",
-		Description: "get server setup info",
-		CaseInSense: true,
-	})
-	if err != nil {
-		panic(err)
+	commandHandlers := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		"setup": setupVibeCmd,
+		"info":  guildInfoCmd,
+		"stop":  stopVibeCmd,
 	}
 
-	vibesInvoker = vibes.Invoker{
-		Endpoint:  os.Getenv("VIBES_ENDPOINT"),
-		AccessKey: os.Getenv("VIBES_ACCESS_KEY"),
-		Scheme:    os.Getenv("VIBES_SCHEME"),
-	}
-
+	var err error
 	dbClient, err = bolt.Open(os.Getenv("DB_PATH"), 0666, nil)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	err = dbClient.Update(func(tx *bolt.Tx) error {
+	dbClient.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(bucketName)
 		return err
 	})
+
+	vibeSets := make(map[string]*vibeInfo)
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0)
+
+	i := 0
+	vibesKeys := make([]string, 0)
+	for {
+		str := os.Getenv(fmt.Sprintf("VIBES_%d", i))
+		if str == "" {
+			break
+		}
+
+		splits := strings.Split(str, ",")
+		if len(splits) != 4 {
+			panic("vibe info has wrong number of args")
+		}
+
+		username := os.Getenv("VIBES_USERNAME")
+		password := os.Getenv("VIBES_PASSWORD")
+
+		vibesKeys = append(vibesKeys, splits[0])
+		vibeSets[splits[0]] = &vibeInfo{
+			command: splits[0],
+			invoker: vibes.Invoker{
+				Endpoint:  splits[2],
+				AccessKey: splits[3],
+				Scheme:    splits[1],
+				Username:  username,
+				Password:  password,
+			},
+		}
+
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  splits[0],
+			Value: splits[0],
+		})
+
+		i++
+	}
+
+	choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+		Name:  "random",
+		Value: "random",
+	})
+
+	commands["start"] = &discordgo.ApplicationCommand{
+		Name:        "start",
+		Description: "join channel and start playing music",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "set",
+				Description: "select which music set",
+				Required:    true,
+				Choices:     choices,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "wacky",
+				Description: "turn on wacky",
+				Required:    false,
+			},
+		},
+	}
+
+	commandHandlers["start"] = func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		//Hack becuase this is boned
+		cmd := i.ApplicationCommandData().Options[0].StringValue()
+		log.Printf("Running start command %s\n", cmd)
+		if cmd == "random" {
+			vibeSets[vibesKeys[rand.Intn(len(vibesKeys)-1)]].startVibeCmd(s, i)
+			return
+		}
+
+		for k, v := range vibeSets {
+			if cmd == k {
+				log.Printf("%s Start command matched %s trying to start vibing\n", i.ID, k)
+				err := v.startVibeCmd(s, i)
+				if err != nil {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: err.Error(),
+						},
+					})
+					log.Printf("%s Error in startVibeCmd:%v\n", i.ID, err)
+				}
+				break
+			}
+		}
+	}
+
+	return commandSet{commands, commandHandlers}
 }
 
 type guildInfo struct {
@@ -139,18 +229,18 @@ func getGuildInfo(id string) *guildInfo {
 }
 
 func setGuildInfo(id string, info guildInfo) error {
-	dbClient.Update(func(tx *bolt.Tx) error {
+	client := dbClient
+	return client.Update(func(tx *bolt.Tx) error {
 		b, _ := json.Marshal(info)
 		return tx.Bucket(bucketName).Put(
 			[]byte(id), []byte(b),
 		)
 	})
-
-	return nil
 }
 
 type voiceLock struct {
-	lock    *sync.Mutex
+	lock    *semaphore.Weighted
+	kill    chan bool
 	channel string
 }
 
@@ -163,11 +253,14 @@ func getVoiceLock(gid string) *voiceLock {
 	return result
 }
 
-func createVoiceLock(gid, cid string) {
-	voiceLocks.Set(gid, &voiceLock{
-		lock:    &sync.Mutex{},
+func createVoiceLock(gid, cid string) *voiceLock {
+	result := &voiceLock{
+		lock:    semaphore.NewWeighted(1),
 		channel: cid,
-	})
+		kill:    make(chan bool),
+	}
+	voiceLocks.Set(gid, result)
+	return result
 }
 
 func deleteVoiceLock(gid string) {
@@ -175,39 +268,48 @@ func deleteVoiceLock(gid string) {
 }
 
 func inVoice(gid string) bool {
-	if val := getVoiceLock(gid); val == nil {
+	l := getVoiceLock(gid)
+
+	if l == nil {
 		return false
 	}
+
+	if l.lock.TryAcquire(1) {
+		l.lock.Release(1)
+		return false
+	}
+
 	return true
 }
 
 func getUserChannel(guildID, userID string, channels []*discordgo.Channel) (string, error) {
 	for _, channel := range channels {
 		users := discgov.GetUsers(guildID, channel.ID)
-		for _, userID := range users {
-			if userID == userID {
+		for _, uid := range users {
+			if uid == userID {
 				return channel.ID, nil
 			}
 		}
 	}
 
-	return "", errors.New("Could not find user")
+	return "", errors.New("could not find user")
 }
 
 func joinCaller(
-	s *discordgo.Session, m *discordgo.MessageCreate,
+	s *discordgo.Session, i *discordgo.InteractionCreate,
 ) (voice *discordgo.VoiceConnection, err error) {
-	guild, err := s.State.Guild(m.GuildID)
+	guild, err := s.State.Guild(i.GuildID)
 	if err != nil {
 		return nil, fmt.Errorf("could not find your discord server")
+
 	}
 
-	targetChannel, err := getUserChannel(m.GuildID, m.Author.ID, guild.Channels)
+	targetChannel, err := getUserChannel(i.GuildID, i.Member.User.ID, guild.Channels)
 	if err != nil {
-		return nil, fmt.Errorf("Must be in a channel on the target server to pick it up")
+		return nil, fmt.Errorf("must be in a channel on the target server to vibe")
 	}
 
-	return s.ChannelVoiceJoin(m.GuildID, targetChannel, false, true)
+	return s.ChannelVoiceJoin(i.GuildID, targetChannel, false, true)
 }
 
 func offsetTime(offset string) time.Time {
@@ -226,21 +328,45 @@ func offsetTime(offset string) time.Time {
 
 //Gross
 func firstDigit(x int) int {
+	if x < 10 {
+		return 0
+	}
 	str := strconv.Itoa(x)
 	result, _ := strconv.Atoi(string(str[0]))
 	return result
 }
 
+func createSeed(offset string) int64 {
+	t := offsetTime(offset)
+	str := fmt.Sprintf(
+		"%d%d%d%d%d",
+		firstDigit(t.Minute()), t.Hour(), t.Day(), t.Month(), t.Year(),
+	)
+
+	result, _ := strconv.ParseInt(str, 10, 64)
+	fmt.Printf("seed: %s, int: %d\n", str, result)
+	return result
+}
+
+func randomGame(sets []string, offset string) string {
+	rand.Seed(createSeed(offset))
+	defer rand.Seed(time.Now().Unix())
+	return sets[rand.Intn(len(sets))]
+}
+
 func (i *guildInfo) startVibing(
 	invoker vibes.Invoker, v *discordgo.VoiceConnection,
-	g *discordgo.Guild,
+	g *discordgo.Guild, invert bool,
 ) {
 	sets, err := invoker.GetSets()
 	if err != nil {
+		fmt.Printf("ERROR getting sets %s\n", err)
 		return
 	}
 
-	createVoiceLock(v.GuildID, v.ChannelID)
+	vl := createVoiceLock(v.GuildID, v.ChannelID)
+	vl.lock.Acquire(context.TODO(), 1)
+	defer vl.lock.Release(1)
 	defer deleteVoiceLock(v.GuildID)
 
 	bellPlayed := false
@@ -257,27 +383,46 @@ func (i *guildInfo) startVibing(
 				return fmt.Errorf("disconnected")
 			}
 
-			s := time.Now().UTC()
-			var bytes []byte
-			var err error
 			offsetStart := false
-			if !bellPlayed && firstDigit(offsetTime(i.Offset).Minute()) == 0 {
-				bytes, err = invoker.GetBell()
+			if !bellPlayed && offsetTime(i.Offset).Minute() == 0 {
+				fmt.Printf("BELL TIME\n")
+				stream, err := invoker.GetBellStream()
+				if err != nil {
+					return err
+				}
+				defer stream.Close()
 				bellPlayed = true
-			} else {
-				bytes, err = invoker.GetSample(
-					offsetTime(i.Offset).Hour(), sets[rand.Intn(len(sets))], i.City, i.Country,
-				)
-				offsetStart = true
+				encodingSession, err := dca.EncodeMem(stream, defaultOptions)
+				if err != nil {
+					return err
+				}
+
+				v.Speaking(true)
+				done := make(chan error)
+				dca.NewStream(encodingSession, v, done)
+				<-done
+				v.Speaking(false)
+				encodingSession.Cleanup()
 			}
+
+			hour := offsetTime(i.Offset).Hour()
+
+			if invert {
+				if hour >= 12 {
+					hour = hour - 12
+				} else {
+					hour = hour + 12
+				}
+			}
+
+			stream, err := invoker.GetSampleStream(
+				hour, randomGame(sets, i.Offset), i.City, i.Country,
+			)
+			offsetStart = true
 			if err != nil {
 				return err
 			}
-
-			fileName := filepath.Join(soundsPath, fmt.Sprintf("%d.ogg", rand.Int()))
-			ioutil.WriteFile(fileName, bytes, 0644)
-			defer os.Remove(filepath.Join(soundsPath, fileName))
-			fmt.Printf("download time:%dms\n", time.Now().UTC().Sub(s).Milliseconds())
+			defer stream.Close()
 
 			options := defaultOptions
 			if offsetStart {
@@ -287,7 +432,7 @@ func (i *guildInfo) startVibing(
 				options.StartTime = startTime
 			}
 
-			encodingSession, err := dca.EncodeFile(fileName, options)
+			encodingSession, err := dca.EncodeMem(stream, options)
 			if err != nil {
 				return err
 			}
@@ -296,124 +441,149 @@ func (i *guildInfo) startVibing(
 			defer v.Speaking(false)
 			done := make(chan error)
 			dca.NewStream(encodingSession, v, done)
-			err = <-done
-			encodingSession.Cleanup()
+			defer encodingSession.Cleanup()
+			select {
+			case <-done:
+				break
+			case <-vl.kill:
+				return fmt.Errorf("killing exsiting")
+			}
 
 			return nil
 		}()
 		if err != nil {
-			fmt.Printf("%v", err)
+			fmt.Printf("%v\n", err)
 			return
 		}
 	}
 }
 
-func setupVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
-	matches := setupVibeRe.FindAllStringSubmatch(strings.ToLower(m.Content), -1)
-	country := matches[0][1]
-	city := matches[0][2]
-	timeOffsetStr := matches[0][3]
+func defualtResponse(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Processing...",
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func setupVibeCmd(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	defualtResponse(s, i)
+
+	country := i.ApplicationCommandData().Options[0].StringValue()
+	city := i.ApplicationCommandData().Options[1].StringValue()
+	timeOffsetStr := i.ApplicationCommandData().Options[2].StringValue()
 
 	offsetHour, err := strconv.Atoi(timeOffsetStr[:2])
 	if err != nil || offsetHour > 14 || offsetHour < -12 {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> invalid timezone offset",
-				m.Author.ID,
-			),
-		)
+		s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+			Content: "invalid time zone string",
+		})
+		return
 	}
 
-	setGuildInfo(m.GuildID, guildInfo{
+	err = setGuildInfo(i.GuildID, guildInfo{
 		Country: country, City: city, Offset: timeOffsetStr,
 	})
-
-	s.ChannelMessageSend(
-		m.ChannelID,
-		fmt.Sprintf(
-			"<@%s> created server info in DB!",
-			m.Author.ID,
-		),
-	)
-}
-
-func serverInfoCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
-	info := getGuildInfo(m.GuildID)
-	if info == nil {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> No sever info in my DB!",
-				m.Author.ID,
-			),
-		)
-		return
-	}
-
-	s.ChannelMessageSend(
-		m.ChannelID,
-		fmt.Sprintf(
-			"<@%s> info %v\n hour: %d",
-			m.Author.ID, info, offsetTime(info.Offset).Hour(),
-		),
-	)
-
-}
-
-func startVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if inVoice(m.GuildID) {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> already vibing dude",
-				m.Author.ID,
-			),
-		)
-	}
-
-	info := getGuildInfo(m.GuildID)
-	if info == nil {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> please setup server info first check help",
-				m.Author.ID,
-			),
-		)
-		return
-	}
-
-	v, err := joinCaller(s, m)
 	if err != nil {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> Unable to find you in a channel! Err: %v",
-				m.Author.ID, err,
-			),
-		)
+		s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+			Content: "Unable to save to DB",
+		})
 		return
 	}
 
-	g, _ := s.Guild(m.GuildID)
-
-	go info.startVibing(vibesInvoker, v, g)
+	err = s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+		Content: "created server info in DB!",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
-func stopVibeCmd(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if !inVoice(m.GuildID) {
-		s.ChannelMessageSend(
-			m.ChannelID,
-			fmt.Sprintf(
-				"<@%s> no vibes are happening right now",
-				m.Author.ID,
-			),
-		)
+func guildInfoCmd(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	defualtResponse(s, i)
+
+	info := getGuildInfo(i.GuildID)
+	if info == nil {
+		s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+			Content: "no sever info in my DB",
+		})
+
+		return
 	}
 
-	deleteVoiceLock(m.GuildID)
-	s.ChannelVoiceJoin(m.GuildID, "", true, true)
+	s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+		Content: fmt.Sprintf(
+			"info %v\n hour: %d",
+			info, offsetTime(info.Offset).Hour(),
+		),
+	})
+}
+
+func (v *vibeInfo) startVibeCmd(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	log.Printf("%s Start vibing entered\n", i.ID)
+	defualtResponse(s, i)
+
+	var wacky bool
+	if len(i.ApplicationCommandData().Options) > 1 {
+		wacky = i.ApplicationCommandData().Options[1].BoolValue()
+	} else {
+		wacky = false
+	}
+	log.Printf("%s Wacky %v\n", i.ID, wacky)
+
+	if inVoice(i.GuildID) {
+		log.Printf("%s Is currently in voice leaving", i.ID)
+		vl := getVoiceLock(i.GuildID)
+		vl.kill <- true
+		deleteVoiceLock(i.GuildID)
+	}
+
+	log.Printf("%s Getting guild info", i.ID)
+	info := getGuildInfo(i.GuildID)
+	if info == nil {
+		return fmt.Errorf("please setup server info first check help")
+	}
+	log.Printf("%s Guild gotten", i.ID)
+
+	log.Printf("%s Joining call", i.ID)
+	voice, err := joinCaller(s, i)
+	if err != nil {
+		return fmt.Errorf("unable to find you in a channel! Err: %v", err)
+	}
+	log.Printf("%s Joined called", i.ID)
+
+	g, _ := s.Guild(i.GuildID)
+
+	log.Printf("%s STARTING THE VIBING", i.ID)
+	go info.startVibing(v.invoker, voice, g, wacky)
+
+	s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+		Content: fmt.Sprintf("we %sing now", strings.TrimSuffix(v.command, "e")),
+	})
+
+	return nil
+}
+
+func stopVibeCmd(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	defualtResponse(s, i)
+
+	if !inVoice(i.GuildID) {
+		s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+			Content: "no vibes are happening right now",
+		})
+		return
+	}
+
+	deleteVoiceLock(i.GuildID)
+	s.ChannelVoiceJoin(i.GuildID, "", true, true)
+
+	s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
+		Content: "ok vibes stopped",
+	})
 }
 
 func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
@@ -440,34 +610,77 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	}
 }
 
+func commandsEqual(a, b *discordgo.ApplicationCommand) bool {
+	aJson, _ := json.Marshal(a.Options)
+	bJson, _ := json.Marshal(b.Options)
+	return a.Name == b.Name && a.Description == b.Description && bytes.Equal(aJson, bJson)
+}
+
 func main() {
 	token := strings.Replace(os.Getenv("DISCORD_AUTH"), "\"", "", -1)
-	discord, err := discordgo.New("Bot " + token)
+	s, err := discordgo.New("Bot " + token)
 	if err != nil {
-		log.Printf("unable to create new discord instance")
-		log.Fatal(err)
+		log.Fatal("unable to create new discord instance ", err)
 	}
+
+	cs := createCommandSet(s)
+
+	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		log.Printf("Command gotten %s\n", i.ApplicationCommandData().Name)
+		if h, ok := cs.handlers[i.ApplicationCommandData().Name]; ok {
+			h(s, i)
+		}
+	})
+
+	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		s.UpdateListeningStatus("I use slash commands now")
+		log.Println("Bot is up!")
+	})
 
 	// Register the messageCreate func as a callback for MessageCreate events.
-	discord.AddHandler(commandSet.Handler)
-	discord.AddHandler(voiceStateUpdate)
+	s.AddHandler(voiceStateUpdate)
 
 	// Open a websocket connection to Discord and begin listening.
-	err = discord.Open()
-	if err != nil {
-		fmt.Println("error opening connection,", err)
-		return
+	if err := s.Open(); err != nil {
+		log.Fatal("error opening connection,", err)
+	}
+	defer s.Close()
+
+	// Clear existing commands
+	existingCmds, _ := s.ApplicationCommands(s.State.User.ID, "")
+	// delete deleted commandss
+	for _, v := range existingCmds {
+		if _, ok := cs.commands[v.Name]; !ok {
+			err := s.ApplicationCommandDelete(v.ApplicationID, "", v.ID)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
 	}
 
-	discord.UpdateStatus(-1, fmt.Sprintf("\"%s help\"", prefix))
+	// Edit updated commands
+	for _, v := range existingCmds {
+		cmd := cs.commands[v.Name]
+		if _, ok := cs.commands[v.Name]; ok {
+			if !commandsEqual(v, cmd) {
+				if _, err := s.ApplicationCommandEdit(v.ApplicationID, "", v.ID, cmd); err != nil {
+					log.Fatalf("Cannot edit '%v' command: %v", v.Name, err)
+				}
+			}
+			delete(cs.commands, v.Name)
+		}
+	}
+
+	// Create new commands
+	for _, cmd := range cs.commands {
+		if _, err := s.ApplicationCommandCreate(s.State.User.ID, "", cmd); err != nil {
+			log.Fatalf("Cannot create '%v' command: %v", cmd, err)
+		}
+	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	<-sc
-
-	// Cleanly close down the Discord session.
-	discord.Close()
-
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	<-stop
+	log.Println("Gracefully shutdowning")
 }

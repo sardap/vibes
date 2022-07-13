@@ -7,5 +7,7 @@
 		"sardap",
 		"vibing",
 		"wtforms"
-	]
+	],
+	"python.formatting.provider": "black",
+	"editor.formatOnSave": true
 }

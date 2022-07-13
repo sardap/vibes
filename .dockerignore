@@ -128,3 +128,4 @@ sketch
 backend/sounds
 backend/config.json
 tmp/
+backend/target

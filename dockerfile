@@ -10,28 +10,41 @@ COPY ./frontend/public public
 RUN npm run build
 
 # Backend
-FROM python:latest
+FROM rust:1.62.0-slim-buster
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg python3 python3-pip pkg-config libssl-dev
+
+RUN mkdir app
+
+COPY backend/audio_gen/requirements.txt app/audio_gen/requirements.txt
+
+RUN pip3 install -r /app/audio_gen/requirements.txt
+
+COPY backend/Cargo.lock app/Cargo.lock
+COPY backend/Cargo.toml app/Cargo.toml
+COPY backend/src app/src
+
+WORKDIR /app
+RUN cargo build --release
+
+COPY backend/audio_gen/startup.py /app/audio_gen/startup.py
 
 COPY --from=builder /app/build /app/frontend
 RUN mkdir /tmp_sounds
 
-WORKDIR /app
-COPY ./backend/requirements.txt /app/requirements.txt
-RUN pip3 install -r requirements.txt
-
-COPY ./backend/ /app/
-
-RUN mkdir sounds/
-
 EXPOSE 5000
 
 ENV FFMPEG_LOCATION="/usr/bin/ffmpeg"
-ENV SERVE="true"
-ENV STATIC_FOLDER="/app/frontend"
-ENV TMP_PATH="/tmp_sounds"
+ENV BUILD_DIR="/app/frontend"
+ENV GENERATED_PATH="/tmp_sounds"
+ENV BASE_PATH="/data"
+ENV AUDIO_GEN_PATH="/app/audio_gen/startup.py"
+ENV BITRATE="320k"
+ENV RUST_BACKTRACE=1
+ENV ROCKET_address=0.0.0.0
 
-CMD ["python3", "startup.py"]
+WORKDIR /app
+
+CMD ["/app/target/release/backend"]

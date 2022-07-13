@@ -135,6 +135,7 @@ next_sound.wav
 */node_modules/*
 frontend/node_modules
 
+backend_old/config
 backend/config
 
 .vscode/launch.json
