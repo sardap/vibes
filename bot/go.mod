@@ -10,6 +10,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sardap/discgov v0.0.0-20201102143011-133c67d2682b
 	go.etcd.io/bbolt v1.3.6
-	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/crypto v0.17.0 // indirect
+	golang.org/x/sync v0.1.0
 )
