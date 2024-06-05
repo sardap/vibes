@@ -1,4 +1,4 @@
-FROM golang:latest as builder
+FROM golang:1.15.15-alpine3.14 as builder
 
 WORKDIR /app
 COPY go.mod .
@@ -8,7 +8,9 @@ COPY . .
 RUN go build -o main .
 
 # Backend
-FROM jrottenberg/ffmpeg:latest
+FROM alpine:3.14
+
+RUN apk update && apk upgrade && apk add --no-cache ffmpeg
 
 ENV DB_PATH=data/db.bin
 ENV SOUNDS_PATH=/tmp/sounds

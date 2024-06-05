@@ -75,6 +75,8 @@ struct WeatherMapResponse {
 
 impl Weather {
     async fn get_weather_for_country(country_code: String, city_name: String) -> Self {
+        Weather::default()
+        /*
         let url = format!(
             "{}/data/2.5/weather?q={},{}&appid={}",
             ARGUMENTS.weather_api_endpoint, city_name, country_code, ARGUMENTS.weather_api_key,
@@ -115,6 +117,7 @@ impl Weather {
         };
 
         result
+        */
     }
 }
 

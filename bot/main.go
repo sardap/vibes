@@ -326,7 +326,7 @@ func offsetTime(offset string) time.Time {
 	)
 }
 
-//Gross
+// Gross
 func firstDigit(x int) int {
 	if x < 10 {
 		return 0
@@ -479,8 +479,9 @@ func setupVibeCmd(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	offsetHour, err := strconv.Atoi(timeOffsetStr[:2])
 	if err != nil || offsetHour > 14 || offsetHour < -12 {
-		s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
-			Content: "invalid time zone string",
+		message := "Unable to save to DB"
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &message,
 		})
 		return
 	}
@@ -489,14 +490,16 @@ func setupVibeCmd(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Country: country, City: city, Offset: timeOffsetStr,
 	})
 	if err != nil {
-		s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
-			Content: "Unable to save to DB",
+		message := "Unable to save to DB"
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &message,
 		})
 		return
 	}
 
-	err = s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
-		Content: "created server info in DB!",
+	message := "created server info in DB!"
+	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &message,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -508,18 +511,20 @@ func guildInfoCmd(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	info := getGuildInfo(i.GuildID)
 	if info == nil {
-		s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
-			Content: "no sever info in my DB",
+		message := "no sever info in my DB"
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &message,
 		})
 
 		return
 	}
 
-	s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
-		Content: fmt.Sprintf(
-			"info %v\n hour: %d",
-			info, offsetTime(info.Offset).Hour(),
-		),
+	message := fmt.Sprintf(
+		"info %v\n hour: %d",
+		info, offsetTime(info.Offset).Hour(),
+	)
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &message,
 	})
 }
 
@@ -561,8 +566,9 @@ func (v *vibeInfo) startVibeCmd(s *discordgo.Session, i *discordgo.InteractionCr
 	log.Printf("%s STARTING THE VIBING", i.ID)
 	go info.startVibing(v.invoker, voice, g, wacky)
 
-	s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
-		Content: fmt.Sprintf("we %sing now", strings.TrimSuffix(v.command, "e")),
+	message := fmt.Sprintf("we %sing now", strings.TrimSuffix(v.command, "e"))
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &message,
 	})
 
 	return nil
@@ -572,8 +578,9 @@ func stopVibeCmd(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	defualtResponse(s, i)
 
 	if !inVoice(i.GuildID) {
-		s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
-			Content: "no vibes are happening right now",
+		message := "no vibes are happening right now"
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &message,
 		})
 		return
 	}
@@ -581,8 +588,9 @@ func stopVibeCmd(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	deleteVoiceLock(i.GuildID)
 	s.ChannelVoiceJoin(i.GuildID, "", true, true)
 
-	s.InteractionResponseEdit(s.State.User.ID, i.Interaction, &discordgo.WebhookEdit{
-		Content: "ok vibes stopped",
+	message := "ok vibes stopped"
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &message,
 	})
 }
 
