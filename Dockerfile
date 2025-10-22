@@ -10,7 +10,7 @@ COPY ./frontend/public public
 RUN npm run build
 
 # Build
-FROM rust:slim-bookworm AS builder
+FROM rust:slim-trixie AS builder
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev
 
