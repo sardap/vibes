@@ -1,5 +1,5 @@
 # React frotnend
-FROM node:8 as builder
+FROM node:20 AS frontend_builder
 WORKDIR /app
 # Seprated for caching
 COPY ./frontend/package.json .
@@ -9,8 +9,20 @@ COPY ./frontend/src src
 COPY ./frontend/public public
 RUN npm run build
 
+# Build
+FROM rust:slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y pkg-config libssl-dev
+
+COPY backend/Cargo.lock app/Cargo.lock
+COPY backend/Cargo.toml app/Cargo.toml
+COPY backend/src app/src
+
+WORKDIR /app
+RUN cargo build --release
+
 # Backend
-FROM rust:1.62.0-slim-buster
+FROM ubuntu:rolling
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -20,18 +32,12 @@ RUN mkdir app
 
 COPY backend/audio_gen/requirements.txt app/audio_gen/requirements.txt
 
-RUN pip3 install -r /app/audio_gen/requirements.txt
-
-COPY backend/Cargo.lock app/Cargo.lock
-COPY backend/Cargo.toml app/Cargo.toml
-COPY backend/src app/src
-
-WORKDIR /app
-RUN cargo build --release
+RUN pip3 install --break-system-packages -r /app/audio_gen/requirements.txt
 
 COPY backend/audio_gen/startup.py /app/audio_gen/startup.py
 
-COPY --from=builder /app/build /app/frontend
+COPY --from=frontend_builder /app/build /app/frontend
+COPY --from=builder /app/target/release/backend /app/backend
 RUN mkdir /tmp_sounds
 
 EXPOSE 5000
@@ -47,4 +53,4 @@ ENV ROCKET_address=0.0.0.0
 
 WORKDIR /app
 
-CMD ["/app/target/release/backend"]
+CMD ["/app/backend"]
