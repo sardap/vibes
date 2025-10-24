@@ -1,6 +1,6 @@
 import itertools
 from pydub import AudioSegment
-from threading import Lock
+from threading import Lock, Thread
 
 import ntpath
 import os
@@ -292,10 +292,15 @@ def main():
             )
 
     print("Generating audio")
+    threads = []
     for i in range(0, 24):
         for music_set in COMPLETE_SET:
             for weather in weather_set:
-                get_time_music(i, music_set, weather)
+                t = Thread(target=get_time_music, args=(i, music_set, weather))
+                t.start()
+                threads.append(t)
+    for t in threads:
+        t.join()
 
 
 if __name__ == "__main__":
