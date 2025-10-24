@@ -25,7 +25,6 @@ MED_WEATHER_DB = os.environ.get("MED_WEATHER_DB", -45)
 HIGH_WEATHER_DB = os.environ.get("HIGH_WEATHER_DB", -25)
 
 _weather_effects = {}
-_access_keys = []
 
 _cache = {}
 
@@ -121,9 +120,6 @@ def load_config():
         _weather_effects[key] = AudioSegment.from_file(
             os.path.join(SOUND_DIR_PATH, value), format=file_extension[1:]
         )
-
-    for key in result["access_keys"]:
-        _access_keys.append(key)
 
     COMPLETE_SET = result["sets"]
 
