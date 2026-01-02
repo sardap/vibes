@@ -1,6 +1,6 @@
 module github.com/sardap/vibes/bot
 
-go 1.23.0
+go 1.24.0
 
 require (
 	github.com/bwmarrin/discordgo v0.27.1
@@ -15,6 +15,6 @@ require (
 require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jonas747/ogg v0.0.0-20161220051205-b4f6f4cf3757 // indirect
-	golang.org/x/crypto v0.35.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 )
