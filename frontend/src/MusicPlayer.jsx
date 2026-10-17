@@ -10,7 +10,7 @@ import './App.css'
 import 'react-rangeslider/lib/index.css'
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-var SunCalc = require('suncalc');
+import SunCalc from 'suncalc';
 
 class MusicPlayer extends React.Component {
 	constructor(props) {
@@ -29,15 +29,10 @@ class MusicPlayer extends React.Component {
 			volume: 100,
 			timer_text_color: "#000000",
 			playing: false,
-			wacky: false
+			wacky: false,
+			lat: -37.8064763,
+			lng: 144.9638029
 		};
-
-		navigator.geolocation.getCurrentPosition(position => {
-			this.setState({
-				lat: position.coords.latitude,
-				lng: position.coords.longitude
-			});
-		});
 
 		this.bell_playing = false
 		this.bell_played = false
@@ -53,8 +48,7 @@ class MusicPlayer extends React.Component {
 		this.weatherUpdate();
 
 		//Get music set
-		const url = window.location.origin + "/api/get_set" + "?" +
-			"access_key=" + this.access_key;
+		const url = window.location.origin + "/api/get_set?access_key=" + this.access_key;
 
 		fetch(url)
 			.then(function (data) {
@@ -88,8 +82,7 @@ class MusicPlayer extends React.Component {
 		const weather_audio_src = window.location.origin + "/api/get_weather_effect/" +
 			this.makeID(20) + "/" +
 			this.country_code + "/" +
-			this.city + "?" +
-			"access_key=" + this.access_key;
+			this.city + "?access_key=" + this.access_key;
 
 		this.weather_audio.pause();
 		this.weather_audio.src = weather_audio_src;
@@ -344,7 +337,7 @@ class MusicPlayer extends React.Component {
 			// dawn
 			result = this.getColor(now, times.nightEnd, times.dawn, sky_night, sky_dawnset, sky_dawn);
 		} else if (now > times.dawn && now < times.sunriseEnd) {
-			// Sunrise 
+			// Sunrise
 			result = this.getColor(now, times.dawn, times.sunriseEnd, sky_dawn, sky_sunrise, sky_day);
 		} else if (now > times.sunriseEnd && now < times.sunsetStart) {
 			// Daytime

@@ -7,6 +7,7 @@ COPY ./frontend/package-lock.json .
 RUN npm install .
 COPY ./frontend/src src
 COPY ./frontend/public public
+COPY ./frontend/index.html ./frontend/vite.config.mjs ./
 RUN npm run build
 
 # Build
